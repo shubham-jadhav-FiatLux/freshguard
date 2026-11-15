@@ -21,7 +21,10 @@ from pathlib import Path
 import httpx
 
 HERE = Path(__file__).parent
-CLAIMS = [json.loads(line) for line in (HERE / "claims.jsonl").read_text().splitlines() if line.strip()]
+def load(name: str) -> list[dict]:
+    """Runs named holdout_* use the held-out set (never used for tuning); all others use claims.jsonl (dev set)."""
+    path = HERE / ("holdout.jsonl" if name.startswith("holdout") else "claims.jsonl")
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 RESULTS = HERE / "results"
 PAUSE_S = 6          # pacing between items (Groq free tier: ~8k tokens/min on the judge model)
 MAX_TRIES = 6
@@ -43,6 +46,7 @@ def correct(label: str, pred: str) -> bool:
 
 async def run(name: str) -> None:
     from freshguard import pipeline  # imported here so FG_* env vars apply
+    CLAIMS = load(name)
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"{name}.jsonl"
     done = {json.loads(l)["id"] for l in out.read_text().splitlines()} if out.exists() else set()
@@ -69,7 +73,8 @@ async def run(name: str) -> None:
                    "correct": correct(item["label"], pred), "score": worst["freshness_score"] if worst else None,
                    "current_fact": worst.get("current_fact") if worst else None,
                    "sources": [s.get("url") for s in (worst or {}).get("sources", [])],
-                   "seconds": round(time.time() - t0, 1), "tokens": rep.get("llm_usage", {}).get("total_tokens", 0)}
+                   "seconds": round(time.time() - t0, 1), "tokens": rep.get("llm_usage", {}).get("total_tokens", 0),
+                   "models": rep.get("llm_usage", {}).get("models", {})}
             with out.open("a") as f:
                 f.write(json.dumps(row) + "\n")
             print(f"  {'✓' if row['correct'] else '✗'} {item['id']:<20} label={item['label']:<8} pred={pred:<9} "
@@ -93,10 +98,12 @@ def metrics(rows: list[dict]) -> dict:
         "recent_change_recall": pct(sum(r["pred"] == "stale" for r in recent_stale), len(recent_stale)),
         "recent_change_accuracy": pct(sum(r["correct"] for r in recent), len(recent)),
         "current_confirmed": pct(sum(r["pred"] == "current" for r in cur), len(cur)),
+        "stale_passed_as_fresh": pct(sum(r["pred"] == "current" for r in stale), len(stale)),  # worst error
         "false_alarm_rate": pct(sum(r["pred"] == "stale" for r in cur), len(cur)),
         "uncertain": sum(r["pred"] == "uncertain" for r in rows),
         "avg_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 1) if rows else None,
         "avg_tokens": round(sum(r["tokens"] for r in rows) / len(rows)) if rows else None,
+        "fallback_calls": sum(n for r in rows for m, n in r.get("models", {}).items() if "gpt-oss-120b" not in m),
     }
 
 

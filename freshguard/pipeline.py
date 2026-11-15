@@ -51,6 +51,10 @@ Rules:
 - A credible, recent NEWS report that the fact CHANGED (resigned, replaced, discontinued, repriced, new version
   released, law amended...) overrides older pages that still state the old fact -> "outdated".
 - If several recent outlets agree on a change, be confident even if profile pages disagree.
+- Prefer primary sources (the company's or project's own site, release notes, official government pages) and
+  dated news from major outlets over third-party trackers, aggregators and SEO pages, which often lag behind.
+- Numbers that differ only by rounding or formatting ($19.99 vs "$20", 3.15 vs 3.15.0) are the SAME fact;
+  only call a number outdated if the evidence explicitly gives a different current value or reports a change.
 - Never call something "the latest" unless the evidence is recent. Mention the evidence date in current_fact.
 - If evidence is missing or ambiguous, say "unverified".
 
@@ -88,7 +92,9 @@ async def chat(client: httpx.AsyncClient, messages: list[dict], model: str | Non
                           headers={"x-bf-mcp-include-clients": "", "x-freshguard-skip": "1"})
     r.raise_for_status()
     data = r.json()
-    return data["choices"][0]["message"]["content"] or "", data.get("usage", {}) or {}
+    usage = dict(data.get("usage") or {})
+    usage["_model"] = data.get("model", "")  # which model actually answered (Bifrost may have used the fallback)
+    return data["choices"][0]["message"]["content"] or "", usage
 
 
 async def tavily_search(client: httpx.AsyncClient, query: str, news_days: int | None = None) -> list[dict]:
@@ -178,6 +184,9 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
 def _add_usage(total: dict, u: dict) -> None:
     for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
         total[k] = total.get(k, 0) + int(u.get(k, 0) or 0)
+    if u.get("_model"):
+        models = total.setdefault("models", {})
+        models[u["_model"]] = models.get(u["_model"], 0) + 1
 
 
 async def check_answer(answer: str, client: httpx.AsyncClient | None = None) -> dict:
