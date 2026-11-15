@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreshGuard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --ink: #14171f; --muted: #5f6675; --line: #e3e6eb;
+    --fresh: #1a8f5a; --fresh-bg: #e6f5ee; --stale: #c62f3a; --stale-bg: #fcebec;
+    --unc: #a86b00; --unc-bg: #fdf3e0; --accent: #3b5bdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #181b22; --ink: #e8eaf0; --muted: #9aa1b0; --line: #2a2f3a;
+      --fresh: #4cc38a; --fresh-bg: #13281f; --stale: #ff6b75; --stale-bg: #2e171a;
+      --unc: #f0b44c; --unc-bg: #2c2312; --accent: #7c93ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; }
+  header p { margin: 4px 0 24px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 6px 14px;
+    border-radius: 999px; cursor: pointer; font: inherit; }
+  .tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  textarea { width: 100%; min-height: 110px; resize: vertical; padding: 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  button.go { background: var(--accent); color: #fff; border: 0; padding: 10px 18px; border-radius: 8px;
+    font: inherit; font-weight: 600; cursor: pointer; }
+  button.go:disabled { opacity: .6; cursor: progress; }
+  .chip { font-size: 13px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px;
+    padding: 4px 10px; cursor: pointer; background: transparent; font-family: inherit; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .answer { white-space: pre-wrap; }
+  .summary { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .gauge { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .gauge b { width: 72px; height: 72px; border-radius: 50%; background: var(--card); display: grid;
+    place-items: center; font-size: 24px; }
+  .claim { border: 1px solid var(--line); border-left-width: 5px; border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+  .claim.fresh { border-left-color: var(--fresh); } .claim.stale { border-left-color: var(--stale); }
+  .claim.uncertain { border-left-color: var(--unc); }
+  .claim-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+  .badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .fresh .badge { color: var(--fresh); background: var(--fresh-bg); }
+  .stale .badge { color: var(--stale); background: var(--stale-bg); }
+  .uncertain .badge { color: var(--unc); background: var(--unc-bg); }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 10px 0 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; }
+  .now { margin-top: 6px; } .now b { color: var(--fresh); }
+  .src a { color: var(--accent); font-size: 13px; text-decoration: none; display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .err { color: var(--stale); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FreshGuard</h1>
+    <p>Catches outdated facts in AI answers. Claims are checked live with Tavily and every LLM call is routed through Bifrost.</p>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab on" data-mode="ask">Ask an LLM</button>
+      <button class="tab" data-mode="check">Paste an AI answer</button>
+    </div>
+    <textarea id="input" placeholder="Ask something time-sensitive…"></textarea>
+    <div class="row">
+      <button class="go" id="go">Ask &amp; verify</button>
+      <span class="muted" id="status"></span>
+    </div>
+    <div class="row" id="examples">
+      <button class="chip">What is the latest version of Python and Node.js?</button>
+      <button class="chip">Who is the CEO of Twitter and how much is Twitter Blue?</button>
+      <button class="chip">What does the OpenAI GPT-4 API cost per 1K tokens?</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="answerCard">
+    <div class="muted">LLM answer (via Bifrost)</div>
+    <div class="answer" id="answer"></div>
+  </div>
+
+  <div class="card hidden" id="reportCard">
+    <div class="summary">
+      <div class="gauge" id="gauge"><b id="score">–</b></div>
+      <div>
+        <div style="font-size:18px;font-weight:600" id="headline"></div>
+        <div class="muted" id="meta"></div>
+      </div>
+    </div>
+    <div id="claims"></div>
+  </div>
+</div>
+
+<script>
+let mode = "ask";
+const $ = (id) => document.getElementById(id);
+const color = { fresh: "var(--fresh)", stale: "var(--stale)", uncertain: "var(--unc)" };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === t));
+  mode = t.dataset.mode;
+  $("go").textContent = mode === "ask" ? "Ask & verify" : "Verify answer";
+  $("input").placeholder = mode === "ask" ? "Ask something time-sensitive…" : "Paste an answer produced by any LLM…";
+  $("examples").classList.toggle("hidden", mode !== "ask");
+});
+document.querySelectorAll("#examples .chip").forEach((c) => c.onclick = () => { $("input").value = c.textContent; });
+
+$("go").onclick = async () => {
+  const text = $("input").value.trim();
+  if (!text) return;
+  $("go").disabled = true;
+  $("status").textContent = mode === "ask" ? "Asking the LLM, extracting claims, searching the web…" : "Extracting claims, searching the web…";
+  $("status").className = "muted";
+  try {
+    const r = await fetch(mode === "ask" ? "/api/ask" : "/api/check", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(mode === "ask" ? { question: text } : { answer: text }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    const report = mode === "ask" ? data.report : data;
+    $("answerCard").classList.toggle("hidden", mode !== "ask");
+    if (mode === "ask") $("answer").textContent = data.answer;
+    render(report);
+    $("status").textContent = "";
+  } catch (e) {
+    $("status").textContent = "Error: " + e.message;
+    $("status").className = "err";
+  } finally { $("go").disabled = false; }
+};
+
+function render(rep) {
+  $("reportCard").classList.remove("hidden");
+  const c = color[rep.overall_label];
+  $("score").textContent = rep.overall_freshness;
+  $("gauge").style.background = `conic-gradient(${c} ${rep.overall_freshness * 3.6}deg, var(--line) 0)`;
+  const n = rep.claims.length;
+  $("headline").textContent = n === 0 ? "No time-sensitive claims found"
+    : rep.stale_count ? `${rep.stale_count} of ${n} time-sensitive claims look outdated`
+    : `${n} time-sensitive claims checked`;
+  const u = rep.llm_usage || {};
+  $("meta").textContent = `Checked ${rep.checked_on} · ${rep.tavily_searches} Tavily searches · ${u.total_tokens || 0} tokens via Bifrost (${rep.judge_model})`;
+  $("claims").innerHTML = rep.claims.map((cl) => `
+    <div class="claim ${cl.label}">
+      <div class="claim-top"><div>${esc(cl.claim)}</div><span class="badge">${cl.label} · ${cl.freshness_score}</span></div>
+      <div class="bar"><i style="width:${cl.freshness_score}%;background:${color[cl.label]}"></i></div>
+      <div class="muted">${esc(cl.category)} · volatility ${esc(cl.volatility)} · ${esc(cl.reason)}</div>
+      ${cl.current_fact && cl.verdict !== "current" ? `<div class="now"><b>Now:</b> ${esc(cl.current_fact)}</div>` : ""}
+      <div class="src">${(cl.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">↗ ${esc(s.title || s.url)}${s.published_date ? " · " + esc(s.published_date.slice(0, 16)) : ""}</a>`).join("")}</div>
+    </div>`).join("");
+}
+</script>
+</body>
+</html>

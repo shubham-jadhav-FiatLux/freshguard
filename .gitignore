@@ -1,0 +1,5 @@
+.env
+.venv/
+__pycache__/
+bifrost-data/
+HACKATHON_REFERENCE.md
