@@ -35,7 +35,7 @@ Overall freshness: 34/100 (stale)
 ```
 Step 2 goes through Bifrost's own `/v1/mcp/tool/execute` endpoint. With `AGENT=1`, step 3 lets **Bifrost Agent Mode** run the tool loop itself: the model calls `freshguard-verify_freshness` and rewrites its answer. In our tests, `gpt-oss-120b` corrected "Python 3.13.2" to "3.15.2" this way. Some Groq models reject multi-step tool loops intermittently, which is why the default demo uses direct tool execution.
 
-Hackathon: Geek Room Global AI Hackathon 2026.
+Hackathon: Geek Room Global AI Hackathon 2026 · Pitch deck: [docs/FreshGuard_Pitch.pdf](docs/FreshGuard_Pitch.pdf)
 - **Primary problem statement:** Bifrost: *Extend the open-source Bifrost gateway*.
 - **Integrated Tavily problem statement:** *Stale-Answer Detector*.
 
