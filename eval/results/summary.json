@@ -1,0 +1,41 @@
+{
+  "news_365": {
+    "n": 34,
+    "accuracy": 97.1,
+    "stale_recall": 100.0,
+    "stale_precision": 94.4,
+    "recent_change_recall": 100.0,
+    "recent_change_accuracy": 95.5,
+    "current_confirmed": 92.9,
+    "false_alarm_rate": 7.1,
+    "uncertain": 0,
+    "avg_seconds": 4.4,
+    "avg_tokens": 2733
+  },
+  "news_web": {
+    "n": 34,
+    "accuracy": 94.1,
+    "stale_recall": 94.1,
+    "stale_precision": 94.1,
+    "recent_change_recall": 90.9,
+    "recent_change_accuracy": 90.9,
+    "current_confirmed": 92.9,
+    "false_alarm_rate": 7.1,
+    "uncertain": 0,
+    "avg_seconds": 5.5,
+    "avg_tokens": 2692
+  },
+  "web_only": {
+    "n": 34,
+    "accuracy": 88.2,
+    "stale_recall": 88.2,
+    "stale_precision": 93.8,
+    "recent_change_recall": 90.9,
+    "recent_change_accuracy": 86.4,
+    "current_confirmed": 85.7,
+    "false_alarm_rate": 7.1,
+    "uncertain": 3,
+    "avg_seconds": 3.1,
+    "avg_tokens": 2075
+  }
+}

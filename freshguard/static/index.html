@@ -35,6 +35,7 @@
   .chip { font-size: 13px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px;
     padding: 4px 10px; cursor: pointer; background: transparent; font-family: inherit; }
   .muted { color: var(--muted); font-size: 13px; }
+  .chip.picked { border-style: solid; border-color: var(--accent); color: var(--ink); }
   .answer { white-space: pre-wrap; }
   .summary { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
   .gauge { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; flex: none; }
@@ -76,9 +77,13 @@
       <span class="muted" id="status"></span>
     </div>
     <div class="row" id="examples">
-      <button class="chip">What is the latest version of Python and Node.js?</button>
-      <button class="chip">Who is the CEO of Twitter and how much is Twitter Blue?</button>
-      <button class="chip">What does the OpenAI GPT-4 API cost per 1K tokens?</button>
+      <span class="muted">Try:</span>
+      <button class="chip" data-ask="Who is the CEO of NVIDIA, and who is the CEO of Apple?"
+        data-answer="NVIDIA is led by its co-founder and CEO Jensen Huang, while Tim Cook continues to serve as Apple's CEO.">NVIDIA &amp; Apple CEOs</button>
+      <button class="chip" data-ask="How much do Netflix's Standard plan and Spotify Premium Individual cost per month in the US?"
+        data-answer="Netflix's Standard ad-free plan costs $17.99 per month in the US, and Spotify Premium Individual costs $11.99 per month.">Streaming prices</button>
+      <button class="chip" data-ask="What are the latest stable versions of Python and Rust, and the newest Node.js LTS?"
+        data-answer="The latest stable Python is 3.13, the latest stable Rust is 1.85, and Node.js 22 is the newest LTS release.">Latest versions</button>
     </div>
   </div>
 
@@ -110,9 +115,14 @@ document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
   mode = t.dataset.mode;
   $("go").textContent = mode === "ask" ? "Ask & verify" : "Verify answer";
   $("input").placeholder = mode === "ask" ? "Ask something time-sensitive…" : "Paste an answer produced by any LLM…";
-  $("examples").classList.toggle("hidden", mode !== "ask");
+  const active = document.querySelector("#examples .chip.picked");
+  if (active) $("input").value = active.dataset[mode === "ask" ? "ask" : "answer"];
 });
-document.querySelectorAll("#examples .chip").forEach((c) => c.onclick = () => { $("input").value = c.textContent; });
+document.querySelectorAll("#examples .chip").forEach((c) => c.onclick = () => {
+  document.querySelectorAll("#examples .chip").forEach((x) => x.classList.toggle("picked", x === c));
+  $("input").value = c.dataset[mode === "ask" ? "ask" : "answer"];
+});
+document.querySelector("#examples .chip").click();  // demo opens with the NVIDIA CEO case
 
 $("go").onclick = async () => {
   const text = $("input").value.trim();

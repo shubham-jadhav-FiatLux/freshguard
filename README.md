@@ -6,7 +6,7 @@
 FreshGuard is a **verification layer that runs alongside the Bifrost AI gateway**. Any LLM answer, whether from your own app, a chatbot or one pasted in by a user, gets:
 
 1. **Claim extraction:** an LLM, called through Bifrost, pulls out the *time-sensitive* factual claims. These are prices, API/software versions, laws, leadership, company facts and "latest/current" statements. Timeless facts are ignored.
-2. **Live verification (hybrid retrieval):** for each claim, two **Tavily** searches run in parallel. A **news search limited to the last 30 days** looks for recent *changes*, and a general web search finds reference pages. News is ranked first and labelled `[NEWS]` for the judge.
+2. **Live verification (hybrid retrieval):** for each claim, two **Tavily** searches run in parallel. A **news search limited to the last 365 days** looks for recent *changes*, and a general web search finds reference pages. News is ranked first and labelled `[NEWS]` for the judge.
 3. **Judgment + freshness score:** a judge LLM, also called through Bifrost, compares the claim with the dated evidence. It returns `current` / `outdated` / `unverified`, a **0–100 freshness score**, the *current fact*, and **source links**.
 
 It plugs into Bifrost in **three ways**, each through a public Bifrost extension point or interface:
@@ -142,7 +142,7 @@ See [`bifrost-plugin/README.md`](bifrost-plugin/README.md) for the `config.json`
 | `FG_ANSWER_MODEL` | `FG_MODEL` | model that answers questions in the UI |
 | `FG_FALLBACK_MODEL` | | Bifrost fallback model if the primary fails |
 | `FG_MAX_CLAIMS` | `6` | maximum claims checked per answer |
-| `FG_NEWS_DAYS` | `30` | recency window of the news search |
+| `FG_NEWS_DAYS` | `365` | recency window of the news search (`0` = web only) |
 | `BIFROST_URL` | `http://localhost:8080` | |
 
 ---
@@ -185,6 +185,45 @@ Report shape:
 ```
 
 ---
+
+## Evaluation: 34-claim freshness benchmark
+
+`eval/claims.jsonl` holds 34 single-claim "LLM answers". Each is labelled against **dated primary or major-outlet sources, checked on 15 Nov 2026** (the source URL is stored with each claim):
+
+| Group | # | Examples |
+|---|---|---|
+| **2026 changes, old fact** (should be stale) | 11 | NVIDIA CEO Jensen Huang (resigned 12 Nov), Apple CEO Tim Cook (Ternus from 1 Sep), Disney, PayPal, Toyota, Lululemon CEOs; Netflix $17.99, Spotify $11.99, Apple TV $12.99; Rust 1.99, Node 24 LTS |
+| **2026 changes, new fact** (should be fresh) | 11 | the matching current facts. These catch over-flagging |
+| **Changed before 2025** (should be stale) | 6 | Python 3.11, Twitter/Intel/Starbucks CEOs, UK PM Sunak, iPhone 15 Pro Max |
+| **Still-true controls** | 3 | Microsoft, Alphabet and Amazon CEOs |
+| **Timeless** (should be skipped) | 3 | water boils at 100 °C, Python's creator, Eiffel Tower |
+
+Full pipeline (Bifrost → Groq `gpt-oss-120b` judge, Tavily retrieval), one run per configuration:
+
+| Metric | **news 365 d + web (default)** | news 30 d + web | web only |
+|---|---|---|---|
+| Accuracy | **97.1 %** (33/34) | 94.1 % | 88.2 % |
+| Stale-claim recall | **100 %** (17/17) | 94.1 % | 88.2 % |
+| 2026-change recall | **100 %** (11/11) | 90.9 % | 90.9 % |
+| Stale-flag precision | 94.4 % | 94.1 % | 93.8 % |
+| Current facts confirmed | 92.9 % | 92.9 % | 85.7 % |
+| False-alarm rate on current facts | 7.1 % (1/14) | 7.1 % | 7.1 % |
+| "Uncertain" verdicts | 0 | 0 | 3 |
+| Avg latency / tokens per answer | 4.4 s / 2.7k | 5.5 s / 2.7k | 3.1 s / 2.1k |
+
+**Error analysis.**
+- *web only*: three "uncertain" verdicts, including NVIDIA's CEO change, because profile pages and news disagree and no news was retrieved. It also flagged Netflix's current $19.99 as stale, citing a 2024 article.
+- *news 30 d*: missed Toyota's April-2026 CEO change, which falls outside the window. It also flagged Rust 1.100 (released 3 days earlier) as stale, because version-tracker sites still showed 1.99.1.
+- *news 365 d*: one error. It flagged Netflix's correct $19.99 as stale because an article rounded the price to "$20", a numeric-rounding mistake by the judge.
+
+**Caveats.** This is a small benchmark (34 claims), each configuration ran once, and the same set was used to choose the 365-day default. Treat the numbers as indicative.
+
+Reproduce:
+```bash
+FG_NEWS_DAYS=365 .venv/bin/python -m eval.run_eval news_365
+FG_NEWS_DAYS=0   .venv/bin/python -m eval.run_eval web_only
+.venv/bin/python -m eval.run_eval --report
+```
 
 ## Tests
 ```bash

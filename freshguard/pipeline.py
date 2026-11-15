@@ -22,7 +22,7 @@ FG_FALLBACK_MODEL = os.getenv("FG_FALLBACK_MODEL", "")                      # op
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TAVILY_URL = "https://api.tavily.com/search"
 MAX_CLAIMS = int(os.getenv("FG_MAX_CLAIMS", "6"))
-NEWS_DAYS = int(os.getenv("FG_NEWS_DAYS", "30"))      # recency window for the news search
+NEWS_DAYS = int(os.getenv("FG_NEWS_DAYS", "365"))      # recency window for the news search (0 = web only)
 MAX_EVIDENCE = int(os.getenv("FG_MAX_EVIDENCE", "8"))
 NEWS_CATEGORIES = {"leadership", "pricing", "company", "regulation", "event", "version"}
 
@@ -108,7 +108,7 @@ async def gather_evidence(client: httpx.AsyncClient, claim: dict, query: str) ->
     """Hybrid retrieval: recent news (catches changes from the last days) + general web (stable reference pages).
     General pages alone miss fresh changes, e.g. a CEO who resigned 3 days ago is still listed on profile pages."""
     searches = [tavily_search(client, query)]
-    if claim.get("volatility") in ("high", "medium") or claim.get("category") in NEWS_CATEGORIES:
+    if NEWS_DAYS > 0 and (claim.get("volatility") in ("high", "medium") or claim.get("category") in NEWS_CATEGORIES):
         searches.insert(0, tavily_search(client, claim.get("news_query") or claim["claim"], news_days=NEWS_DAYS))
     merged, seen = [], set()
     for res in await asyncio.gather(*searches, return_exceptions=True):

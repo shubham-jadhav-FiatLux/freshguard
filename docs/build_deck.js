@@ -135,7 +135,7 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
   // ===== 4. PIPELINE =====
   s = content("Solution", "03 · HOW IT WORKS", "Four steps, ~7 seconds, a source for every claim");
   const steps = [[I.search, K.violet, "Extract", "LLM via Bifrost · JSON mode", "Pulls only time-sensitive claims (prices, versions, laws, leaders, “latest”), each with a category, a volatility level and a search query. Timeless facts are skipped."],
-    [I.globe, K.cyan, "Search", "Tavily · news (30 days) + web", "Per claim, in parallel: a news search for recent CHANGES plus a general web search. News is ranked first, so a resignation 3 days ago beats a stale profile page."],
+    [I.globe, K.cyan, "Search", "Tavily · news (1 year) + web", "Per claim, in parallel: a news search for recent CHANGES plus a general web search. News is ranked first, so a resignation 3 days ago beats a stale profile page."],
     [I.scale, K.violet, "Judge", "LLM via Bifrost · evidence-only", "Rules current / outdated / unverified on the evidence only. Recent dated news of a change overrides older pages; weak evidence means unverified, not a guess."],
     [I.gauge, K.mint, "Score", "deterministic · 0–100", "Converts verdict + confidence + volatility into a freshness score and label, and attaches the current fact and the sources it relied on."]];
   steps.forEach(([img, col, h, sub, body], i) => {
@@ -257,8 +257,29 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
   kpis.forEach(([v, l], i) => { const y = 4.45 + i * 0.77; box(s, 9.3, y, 3.35, 0.65, K.surf, { line: K.line });
     T(s, [{ text: v + "  ", options: { bold: true, color: K.mint, fontSize: 17 } }, { text: l, options: { color: K.muted, fontSize: 13 } }], { x: 9.55, y, w: 3.0, h: 0.65, valign: "middle" }); });
 
+  // ===== 9b. MEASURED =====
+  s = content("Demo", "09 · MEASURED", "Measured on 34 real claims: 97% accuracy");
+  const tiles = [["97%", "accuracy", "33 of 34 claims judged correctly"], ["11/11", "2026 changes caught", "CEOs, prices, versions changed this year"], ["1/14", "false alarms", "current facts wrongly flagged stale"]];
+  tiles.forEach(([v, l, d], i) => { const y = 1.95 + i * 1.6;
+    box(s, 0.7, y, 3.9, 1.4, K.surf, { line: K.line });
+    T(s, v, { x: 0.95, y: y + 0.15, w: 1.9, h: 0.75, fontSize: 40, bold: true, color: i === 2 ? K.text : K.mint, valign: "middle" });
+    T(s, l, { x: 2.75, y: y + 0.3, w: 1.75, h: 0.55, fontSize: 14, bold: true, valign: "middle" });
+    T(s, d, { x: 0.95, y: y + 0.92, w: 3.5, h: 0.35, fontSize: 12, color: K.muted }); });
+  box(s, 4.9, 1.95, 7.75, 4.6, K.surf, { line: K.line });
+  T(s, "Accuracy by retrieval strategy (%)", { x: 5.2, y: 2.15, w: 7, h: 0.35, fontSize: 15, bold: true });
+  s.addChart(pres.charts.BAR, [{ name: "Accuracy", labels: ["Web search only", "News 30 days + web", "News 365 days + web (default)"], values: [88.2, 94.1, 97.1] }], {
+    x: 5.1, y: 2.55, w: 7.35, h: 2.75, barDir: "bar", chartColors: [K.dim, K.dim, K.mint], barGapWidthPct: 55,
+    showValue: true, dataLabelPosition: "outEnd", dataLabelColor: K.text, dataLabelFontSize: 14, dataLabelFontBold: true, dataLabelFontFace: "+mn-lt", dataLabelFormatCode: "0.0",
+    catAxisLabelColor: K.muted, catAxisLabelFontSize: 13, catAxisLabelFontFace: "+mn-lt", catAxisLineShow: false,
+    valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 100, valGridLine: { style: "none" }, catGridLine: { style: "none" },
+    showLegend: false, showTitle: false, plotArea: { fill: { color: K.surf } }, chartArea: { fill: { color: K.surf } }, objectName: "accuracy chart", altText: "Accuracy: web only 88.2%, news 30 days + web 94.1%, news 365 days + web 97.1%" });
+  T(s, [{ text: "Stale-claim recall  ", options: { color: K.muted } }, { text: "88% → 100%", options: { bold: true, color: K.mint } }, { text: "     ·     “Uncertain” verdicts  ", options: { color: K.muted } }, { text: "3 → 0", options: { bold: true, color: K.mint } }], { x: 5.2, y: 5.45, w: 7.3, h: 0.35, fontSize: 14 });
+  T(s, "Labels checked against dated sources on 15 Nov 2026 · single run per configuration · eval/claims.jsonl", { x: 5.2, y: 5.9, w: 7.3, h: 0.5, fontSize: 11, color: K.dim });
+  T(s, "Benchmark: 11 facts that changed in 2026 + their 11 current replacements, 6 long-stale facts, 3 still-true controls, 3 timeless facts (should be skipped).", { x: 0.7, y: 6.62, w: 11.95, h: 0.3, fontSize: 11, color: K.dim });
+  s.addNotes("Web only: 88.2%. News 30 days + web: 94.1%. News 365 days + web (default): 97.1%, 100% stale recall, 100% recall on 2026 changes. Only error: Netflix $19.99 flagged stale because an article rounded it to $20. Small benchmark, single run, and the same set was used to choose the window.");
+
   // ===== 10. RELIABILITY =====
-  s = content("Demo", "09 · ENGINEERED FOR PRODUCTION", "Built to never break the request it's checking");
+  s = content("Demo", "10 · ENGINEERED FOR PRODUCTION", "Built to never break the request it's checking");
   const rel = [[I.shieldDark, "Fail open", "If verification errors or times out, the original response passes through untouched with X-FreshGuard-Status: error."],
     [I.refresh, "No recursion", "Internal calls send x-freshguard-skip and an empty MCP include header, so FreshGuard never checks itself."],
     [I.layers, "Provider failover", "All LLM calls use Bifrost fallbacks[]: when the primary model hits rate limits, a second model takes over."],
@@ -273,7 +294,7 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
 
   // ===== 11. IMPACT =====
   pres.addSection({ title: "Impact" });
-  s = content("Impact", "10 · IMPACT & ROADMAP", "Wherever an outdated fact costs trust or money");
+  s = content("Impact", "11 · IMPACT & ROADMAP", "Wherever an outdated fact costs trust or money");
   const who = [["Support bots", "pricing, plans, policies"], ["Coding assistants", "API and library versions"], ["Sales & research copilots", "leadership, funding, launches"], ["Compliance answers", "laws and regulations"]];
   T(s, "WHO NEEDS IT", { x: 0.7, y: 1.95, w: 5, h: 0.3, fontSize: 11, bold: true, color: K.dim, charSpacing: 2 });
   who.forEach(([a, b], i) => { const y = 2.35 + i * 1.05; box(s, 0.7, y, 5.6, 0.85, K.surf, { line: K.line });
