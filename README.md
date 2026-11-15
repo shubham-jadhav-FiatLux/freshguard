@@ -73,7 +73,7 @@ The overall score is the mean over all claims.
 Requirements: Docker, Python 3.10+, a Tavily API key, and at least one LLM key (Groq's free tier works).
 
 ```bash
-git clone <this repo> && cd <repo>
+git clone https://github.com/shubham-jadhav-FiatLux/freshguard && cd freshguard
 cp .env.example .env          # add TAVILY_API_KEY and GROQ_API_KEY (or GEMINI/OPENAI/ANTHROPIC)
 
 ./scripts/start_bifrost.sh    # runs maximhq/bifrost in Docker on :8080, configured from .env
