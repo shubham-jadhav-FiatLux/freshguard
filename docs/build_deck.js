@@ -78,7 +78,7 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
   T(s, "FRESHGUARD", { x: 0.8, y: 1.55, w: 6, h: 0.45, fontSize: 18, bold: true, color: K.mint, charSpacing: 6 });
   s.addText("Facts expire.\nWe check the date.", { placeholder: "title" });
   T(s, "A live freshness check for every LLM answer: built into the Bifrost AI gateway, verified on the open web with Tavily.", { x: 0.8, y: 4.4, w: 7.4, h: 0.9, fontSize: 18, color: K.muted });
-  T(s, [{ text: "by  ", options: { fontFace: "Calibri", fontSize: 15, color: K.muted, italic: true } }, { text: "Shubham Jadhav", options: { fontFace: "Cambria", fontSize: 26, bold: true, italic: true, color: K.amber } }], { x: 0.8, y: 6.25, w: 7, h: 0.6, valign: "middle" });
+  T(s, [{ text: "Shubham Jadhav", options: { fontFace: "Cambria", fontSize: 24, bold: true, color: K.amber, breakLine: true } }, { text: "Department of Computer Science and Engineering, IIT Madras", options: { fontFace: "Calibri", fontSize: 14, color: K.muted } }], { x: 0.8, y: 6.2, w: 9, h: 0.85, valign: "middle" });
   let px = 0.8; px += pill(s, px, 5.65, "BIFROST · EXTEND THE GATEWAY", K.violet, K.violetD) + 0.15; pill(s, px, 5.65, "TAVILY · STALE-ANSWER DETECTOR", K.cyan, K.cyanD);
   // hero visual: a "fact label" card with expiry stamp
   box(s, 9.0, 1.7, 3.6, 3.9, K.surf, { line: K.line });
@@ -290,7 +290,7 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
   T(s, "Open source · MIT · Python (FastAPI, MCP) · Go (Bifrost plugin) · Docker", { x: 0.8, y: 5.0, w: 8.5, h: 0.4, fontSize: 15, color: K.muted });
   px = 0.8; px += pill(s, px, 5.75, "BIFROST BY MAXIM AI", K.violet, K.violetD) + 0.15; px += pill(s, px, 5.75, "TAVILY", K.cyan, K.cyanD) + 0.15; pill(s, px, 5.75, "GROQ", K.gray, K.surf2);
   stamp(s, 10.0, 3.0, "VERIFIED", K.mint, -10);
-  T(s, [{ text: "by  ", options: { fontFace: "Calibri", fontSize: 15, color: K.muted, italic: true } }, { text: "Shubham Jadhav", options: { fontFace: "Cambria", fontSize: 26, bold: true, italic: true, color: K.amber } }], { x: 0.8, y: 6.4, w: 7, h: 0.6, valign: "middle" });
+  T(s, [{ text: "Shubham Jadhav", options: { fontFace: "Cambria", fontSize: 24, bold: true, color: K.amber, breakLine: true } }, { text: "Department of Computer Science and Engineering, IIT Madras", options: { fontFace: "Calibri", fontSize: 14, color: K.muted } }], { x: 0.8, y: 6.35, w: 9, h: 0.85, valign: "middle" });
 
   await pres.writeFile({ fileName: OUT });
   await applyTheme(OUT, THEME);
