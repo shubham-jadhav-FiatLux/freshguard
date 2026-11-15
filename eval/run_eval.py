@@ -1,8 +1,9 @@
 """FreshGuard benchmark: runs the real pipeline (via Bifrost + Tavily) on labelled claims.
 
 Usage:
-  FG_NEWS_DAYS=30 .venv/bin/python -m eval.run_eval news_web     # current config: news (30d) + web
-  FG_NEWS_DAYS=0  .venv/bin/python -m eval.run_eval web_only     # ablation: general web search only
+  FG_NEWS_DAYS=365 .venv/bin/python -m eval.run_eval news_365     # default: news (365d) + web
+  FG_NEWS_DAYS=30  .venv/bin/python -m eval.run_eval news_30      # ablation: 30-day news window
+  FG_NEWS_DAYS=0   .venv/bin/python -m eval.run_eval web_only     # ablation: general web search only
   .venv/bin/python -m eval.run_eval --report                     # metrics table for all runs
 
 Each answer is a single claim. Prediction = label of the lowest-scoring extracted claim

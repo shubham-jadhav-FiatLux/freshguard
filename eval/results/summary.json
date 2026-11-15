@@ -1,4 +1,17 @@
 {
+  "news_30": {
+    "n": 34,
+    "accuracy": 94.1,
+    "stale_recall": 94.1,
+    "stale_precision": 94.1,
+    "recent_change_recall": 90.9,
+    "recent_change_accuracy": 90.9,
+    "current_confirmed": 92.9,
+    "false_alarm_rate": 7.1,
+    "uncertain": 0,
+    "avg_seconds": 5.5,
+    "avg_tokens": 2692
+  },
   "news_365": {
     "n": 34,
     "accuracy": 97.1,
@@ -11,19 +24,6 @@
     "uncertain": 0,
     "avg_seconds": 4.4,
     "avg_tokens": 2733
-  },
-  "news_web": {
-    "n": 34,
-    "accuracy": 94.1,
-    "stale_recall": 94.1,
-    "stale_precision": 94.1,
-    "recent_change_recall": 90.9,
-    "recent_change_accuracy": 90.9,
-    "current_confirmed": 92.9,
-    "false_alarm_rate": 7.1,
-    "uncertain": 0,
-    "avg_seconds": 5.5,
-    "avg_tokens": 2692
   },
   "web_only": {
     "n": 34,
