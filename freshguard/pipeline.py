@@ -18,7 +18,7 @@ load_dotenv()
 BIFROST_URL = os.getenv("BIFROST_URL", "http://localhost:8080")
 FG_MODEL = os.getenv("FG_MODEL", "groq/openai/gpt-oss-120b")          # judge / extractor
 FG_ANSWER_MODEL = os.getenv("FG_ANSWER_MODEL", FG_MODEL)                    # model used for demo answers
-FG_FALLBACK_MODEL = os.getenv("FG_FALLBACK_MODEL", "")                      # optional Bifrost fallback
+FG_FALLBACK_MODEL = os.getenv("FG_FALLBACK_MODEL", "")  # optional comma-separated Bifrost fallbacks (cross-provider OK)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TAVILY_URL = "https://api.tavily.com/search"
 MAX_CLAIMS = int(os.getenv("FG_MAX_CLAIMS", "6"))
@@ -84,8 +84,8 @@ async def chat(client: httpx.AsyncClient, messages: list[dict], model: str | Non
     body: dict = {"model": model or FG_MODEL, "messages": messages, "temperature": temperature}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
-    if FG_FALLBACK_MODEL:  # Bifrost retries on this model if the primary provider fails / rate-limits
-        body["fallbacks"] = [FG_FALLBACK_MODEL]
+    if FG_FALLBACK_MODEL:  # Bifrost tries these in order if the primary provider fails / rate-limits
+        body["fallbacks"] = [m.strip() for m in FG_FALLBACK_MODEL.split(",") if m.strip()]
     # Empty include-clients header: FreshGuard's own calls must not get Bifrost's MCP tools injected
     # (that would recurse into verify_freshness and clash with JSON mode).
     r = await client.post(f"{BIFROST_URL}/v1/chat/completions", json=body, timeout=90,
