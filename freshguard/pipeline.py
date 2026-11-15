@@ -73,7 +73,10 @@ async def chat(client: httpx.AsyncClient, messages: list[dict], model: str | Non
         body["response_format"] = {"type": "json_object"}
     if FG_FALLBACK_MODEL:  # Bifrost retries on this model if the primary provider fails / rate-limits
         body["fallbacks"] = [FG_FALLBACK_MODEL]
-    r = await client.post(f"{BIFROST_URL}/v1/chat/completions", json=body, timeout=90)
+    # Empty include-clients header: FreshGuard's own calls must not get Bifrost's MCP tools injected
+    # (that would recurse into verify_freshness and clash with JSON mode).
+    r = await client.post(f"{BIFROST_URL}/v1/chat/completions", json=body, timeout=90,
+                          headers={"x-bf-mcp-include-clients": "", "x-freshguard-skip": "1"})
     r.raise_for_status()
     data = r.json()
     return data["choices"][0]["message"]["content"] or "", data.get("usage", {}) or {}

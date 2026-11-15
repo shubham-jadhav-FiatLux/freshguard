@@ -84,7 +84,8 @@ async def proxy(request: Request):
         raise HTTPException(400, "FreshGuard proxy supports non-streaming requests only")
     try:
         async with httpx.AsyncClient() as c:
-            r = await c.post(f"{pipeline.BIFROST_URL}/v1/chat/completions", json=body, timeout=120)
+            r = await c.post(f"{pipeline.BIFROST_URL}/v1/chat/completions", json=body, timeout=120,
+                             headers={"x-freshguard-skip": "1"})  # we attach our own report
             r.raise_for_status()
             data = r.json()
             text = data["choices"][0]["message"].get("content") or ""

@@ -9,9 +9,31 @@ FreshGuard is a **verification layer that runs alongside the Bifrost AI gateway*
 2. **Live verification:** each claim is re-checked against the live web with **Tavily**. Fast-changing claims are biased toward recent pages.
 3. **Judgment + freshness score:** a judge LLM, also called through Bifrost, compares the claim with the dated evidence. It returns `current` / `outdated` / `unverified`, a **0–100 freshness score**, the *current fact*, and **source links**.
 
-It ships as two things:
-- **A drop-in, OpenAI-compatible endpoint** (`/v1/chat/completions`). Point your app's base URL at FreshGuard instead of Bifrost. Responses come back unchanged plus a `freshguard` report and an `X-FreshGuard-Score` header, so no app code has to change.
-- **A web UI** to ask an LLM a question, or paste any AI answer, and see the outdated claims highlighted with sources.
+It plugs into Bifrost in **three ways**, each through a public Bifrost extension point or interface:
+
+| # | Integration | Bifrost extension point | Works on stock `maximhq/bifrost`? |
+|---|---|---|---|
+| 1 | **MCP tool server**: `verify_freshness` and `verify_claim`, auto-executed by Bifrost **Agent Mode** | MCP gateway (`mcp.client_configs`, `tools_to_auto_execute`) | ✅ yes, verified end to end (direct tool execution + Agent Mode) |
+| 2 | **Native Go plugin** (`bifrost-plugin/`): annotates every chat completion with `X-FreshGuard-*` headers and a report | `HTTPTransportPostHook` plugin interface | needs a dynamically built Bifrost (see plugin README) |
+| 3 | **Drop-in OpenAI-compatible endpoint**: point the base URL at FreshGuard | Bifrost's OpenAI-compatible API | ✅ yes |
+
+There is also a **web UI** to ask an LLM a question, or paste any AI answer, and see the outdated claims highlighted with sources.
+
+### Demo through a stock Bifrost gateway (real output, `scripts/demo_agent_mode.sh`)
+```
+━━ 1) LLM answer via Bifrost (groq/qwen/qwen3.8-27b), no tools ━━
+The latest stable Python version in my training knowledge is Python 3.12. The newest iPhone is the
+iPhone 15 Pro Max, which has a starting price of $1,199.
+
+━━ 2) FreshGuard via Bifrost MCP gateway: tool freshguard-verify_freshness ━━
+Overall freshness: 34/100 (stale)
+ ❌ [  1] The latest stable Python version is Python 3.12
+        now: The latest stable Python version as of November 15 2026 is Python 3.15.2
+ ❌ [  2] The newest iPhone model is the iPhone 15 Pro Max
+        now: As of 2026-11-15 the latest iPhone model is the iPhone 18 Pro Max
+ ✅ [ 99] The iPhone 15 Pro Max has a starting price of $1,199
+```
+Step 2 goes through Bifrost's own `/v1/mcp/tool/execute` endpoint. With `AGENT=1`, step 3 lets **Bifrost Agent Mode** run the tool loop itself: the model calls `freshguard-verify_freshness` and rewrites its answer. In our tests, `gpt-oss-120b` corrected "Python 3.13.2" to "3.15.2" this way. Some Groq models reject multi-step tool loops intermittently, which is why the default demo uses direct tool execution.
 
 Hackathon: Geek Room Global AI Hackathon 2026.
 - **Primary problem statement:** Bifrost: *Extend the open-source Bifrost gateway*.
@@ -38,16 +60,19 @@ Overall freshness: **33 / 100** · 3 Tavily searches · ~5.5k tokens via Bifrost
 ## Architecture
 
 ```
-            ┌──────────────────────────── FreshGuard (FastAPI) ────────────────────────────┐
- your app ─▶│ /v1/chat/completions ─▶ forward to Bifrost ─▶ answer                          │
- or UI    ─▶│ /api/ask, /api/check          │                                               │
-            │                              ▼                                               │
-            │   1. extract claims ──LLM──▶ Bifrost ──▶ Groq / Gemini / OpenAI / ...         │
-            │   2. verify (parallel) ─────▶ Tavily Search (live web, dated sources)         │
-            │   3. judge + score ───LLM──▶ Bifrost (with automatic fallback model)          │
-            │                              ▼                                               │
-            │   answer + freshguard report {overall score, per-claim verdict, sources}     │
-            └──────────────────────────────────────────────────────────────────────────────┘
+                    ┌──────────────────── Bifrost gateway (:8080) ─────────────────────┐
+  app / agent ────▶ │ /v1/chat/completions                                             │
+                    │   ├─ MCP gateway ── Agent Mode auto-calls ──┐                    │
+                    │   ├─ Go plugin: HTTPTransportPostHook ──────┤  (x-freshguard-    │
+                    │   └─ routing + fallbacks ─▶ Groq/Gemini/…   │   skip on internal │
+                    └─────────────────────────────────────────────┼───── calls) ───────┘
+                                                                  ▼
+                    ┌─────────────── FreshGuard (:8000 API/UI, :8001 MCP) ─────────────┐
+                    │ 1. extract time-sensitive claims ─LLM via Bifrost (JSON mode)    │
+                    │ 2. verify each claim in parallel ─▶ Tavily Search (dated pages)  │
+                    │ 3. judge on evidence only ────────LLM via Bifrost (+ fallback)   │
+                    │ 4. score 0–100 per claim → report {verdict, current fact, URLs}  │
+                    └──────────────────────────────────────────────────────────────────┘
 ```
 
 ### What each technology contributes
@@ -76,13 +101,24 @@ Requirements: Docker, Python 3.10+, a Tavily API key, and at least one LLM key (
 git clone https://github.com/shubham-jadhav-FiatLux/freshguard && cd freshguard
 cp .env.example .env          # add TAVILY_API_KEY and GROQ_API_KEY (or GEMINI/OPENAI/ANTHROPIC)
 
-./scripts/start_bifrost.sh    # runs maximhq/bifrost in Docker on :8080, configured from .env
-
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn freshguard.app:app --port 8000
+./scripts/run.sh              # FreshGuard API/UI on :8000 + MCP server on :8001 (keep running)
+
+# in a second terminal:
+./scripts/start_bifrost.sh    # stock maximhq/bifrost in Docker on :8080: providers from .env,
+                              # FreshGuard registered as an MCP client with Agent Mode auto-execute
+./scripts/demo_agent_mode.sh  # before/after: same question without and with FreshGuard
 ```
 
-Open **http://localhost:8000** for the UI and **http://localhost:8080** for the Bifrost dashboard (request logs and tokens).
+Open **http://localhost:8000** for the UI and **http://localhost:8080** for the Bifrost dashboard. The dashboard shows request logs, tokens and MCP tool calls.
+
+> The MCP server listens on `0.0.0.0:8001` so the Bifrost container can reach it via `host.docker.internal`. On a shared network, firewall that port or set `FG_MCP_HOST`.
+
+### Native Go plugin
+```bash
+cd bifrost-plugin && make test && make build   # -> build/freshguard.so
+```
+See [`bifrost-plugin/README.md`](bifrost-plugin/README.md) for the `config.json` block and the dynamic-build requirement.
 
 ### Configuration (`.env`)
 | Variable | Default | Meaning |
@@ -138,7 +174,8 @@ Report shape:
 
 ## Tests
 ```bash
-.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest -q          # Python: scoring, parsing, end-to-end with mocks
+cd bifrost-plugin && go test ./...     # Go plugin: path filter, skip header, annotate, fail-open
 ```
 The offline tests mock Bifrost and Tavily with `httpx.MockTransport`. They cover the scoring bands, JSON parsing, and an end-to-end stale-claim detection.
 
@@ -147,8 +184,12 @@ The offline tests mock Bifrost and Tavily with `httpx.MockTransport`. They cover
 freshguard/pipeline.py      claim extraction → Tavily verification → judging → scoring
 freshguard/app.py           FastAPI: UI, /api/check, /api/ask, drop-in /v1/chat/completions
 freshguard/static/index.html  demo UI
-scripts/start_bifrost.sh    starts Bifrost in Docker, configured from .env
-tests/                      offline tests
+freshguard/mcp_server.py    MCP server (verify_freshness, verify_claim) for Bifrost's MCP gateway
+bifrost-plugin/             native Bifrost Go plugin (HTTPTransportPostHook) + unit tests
+scripts/run.sh              runs API/UI + MCP server
+scripts/start_bifrost.sh    starts stock Bifrost in Docker, configured from .env (providers + MCP)
+scripts/demo_agent_mode.sh  before/after Agent Mode demo
+tests/                      offline Python tests
 ```
 
 ## How AI is used
@@ -158,9 +199,10 @@ tests/                      offline tests
 
 ## Limitations & next steps
 - Judgments are only as good as the retrieved evidence. Low-evidence claims are reported as `uncertain` instead of guessed.
-- Streaming responses aren't checked yet; the proxy handles non-streaming completions.
+- Streaming responses aren't checked yet; the proxy and the plugin handle non-streaming completions.
+- On Groq's free tier, `gpt-oss-120b` is limited to 8k tokens/min. One check uses about 5k tokens, so Bifrost's fallback model takes over under load.
 - Next steps:
-  - package the check as a native Bifrost `PostLLMHook` plugin so it runs inside the gateway;
+  - publish a Bifrost image variant with the Go plugin preloaded;
   - cache verdicts per claim with a TTL by volatility;
   - add per-domain trusted-source lists such as official docs and pricing pages.
 
