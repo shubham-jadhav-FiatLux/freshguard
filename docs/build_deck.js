@@ -112,7 +112,13 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
   // left: raw answer, middle: freshguard, right: annotated answer
   box(s, 0.7, 2.2, 3.6, 3.9, K.surf, { line: K.line });
   T(s, "ANSWER IN", { x: 1.0, y: 2.45, w: 3, h: 0.3, fontSize: 11, bold: true, color: K.dim, charSpacing: 2 });
-  T(s, "“The latest stable Python is 3.12. The newest iPhone is the 15 Pro Max, starting at $1,199.”", { x: 1.0, y: 2.85, w: 3.05, h: 2.0, fontSize: 17 });
+  ["Latest stable Python is 3.12", "Newest iPhone is 15 Pro Max", "15 Pro Max starts at $1,199"].forEach((t, i) => {
+    const cy = 3.06 + i * 0.85;  // same row centres as the ANSWER OUT pills
+    s.addShape(pres.shapes.OVAL, { x: 1.0, y: cy - 0.16, w: 0.32, h: 0.32, fill: { color: K.surf2 }, line: { color: K.line, width: 1 }, objectName: id("num") });
+    T(s, String(i + 1), { x: 1.0, y: cy - 0.16, w: 0.32, h: 0.32, fontSize: 11, bold: true, color: K.muted, align: "center", valign: "middle" });
+    T(s, `“${t}”`, { x: 1.45, y: cy - 0.3, w: 2.7, h: 0.6, fontSize: 15, valign: "middle" });
+  });
+  T(s, "3 time-sensitive claims in one answer", { x: 1.0, y: 5.45, w: 3.2, h: 0.35, fontSize: 12, color: K.violet });
   arrow(s, 4.4, 4.15, 5.15, 4.15, K.mint, { w: 2.5 });
   s.addShape(pres.shapes.OVAL, { x: 5.25, y: 2.95, w: 2.4, h: 2.4, fill: { color: K.mintD }, line: { color: K.mint, width: 2 }, objectName: id("core") });
   s.addImage({ data: I.shield, x: 6.05, y: 3.25, w: 0.8, h: 0.8, objectName: id("shield"), altText: "FreshGuard" });
