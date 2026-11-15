@@ -22,6 +22,9 @@ FG_FALLBACK_MODEL = os.getenv("FG_FALLBACK_MODEL", "")                      # op
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TAVILY_URL = "https://api.tavily.com/search"
 MAX_CLAIMS = int(os.getenv("FG_MAX_CLAIMS", "6"))
+NEWS_DAYS = int(os.getenv("FG_NEWS_DAYS", "30"))      # recency window for the news search
+MAX_EVIDENCE = int(os.getenv("FG_MAX_EVIDENCE", "8"))
+NEWS_CATEGORIES = {"leadership", "pricing", "company", "regulation", "event", "version"}
 
 CATEGORIES = ["pricing", "version", "regulation", "leadership", "company", "statistic", "event", "other"]
 
@@ -34,16 +37,22 @@ facts, statistics, "latest"/"current"/"newest" statements, release dates). Skip 
 
 Return ONLY JSON: {{"claims": [{{"claim": "<self-contained statement, resolve pronouns>",
 "category": one of {cats}, "volatility": "high"|"medium"|"low",
-"search_query": "<web search query that would verify it today>"}}]}}
+"search_query": "<web search query that would verify it today>",
+"news_query": "<short news query that would surface a recent CHANGE to this fact, e.g. 'X CEO steps down'>"}}]}}
 
 ANSWER:
 \"\"\"{answer}\"\"\""""
 
 JUDGE_PROMPT = """You are a fact-freshness judge. Today's date is {today}.
 Decide whether the CLAIM is still accurate *today*, using ONLY the EVIDENCE (live web results).
-Prefer the most recent, most authoritative evidence. Evidence can itself be old: never claim something is
-"the latest" unless the evidence is recent, and state the date of the evidence in current_fact.
-If evidence is missing or ambiguous, say "unverified".
+Evidence items marked [NEWS] come from a news search limited to the last {news_days} days; others are general
+web pages (profiles, docs, wikis) that are often months or years out of date.
+Rules:
+- A credible, recent NEWS report that the fact CHANGED (resigned, replaced, discontinued, repriced, new version
+  released, law amended...) overrides older pages that still state the old fact -> "outdated".
+- If several recent outlets agree on a change, be confident even if profile pages disagree.
+- Never call something "the latest" unless the evidence is recent. Mention the evidence date in current_fact.
+- If evidence is missing or ambiguous, say "unverified".
 
 CLAIM: {claim}
 
@@ -82,15 +91,35 @@ async def chat(client: httpx.AsyncClient, messages: list[dict], model: str | Non
     return data["choices"][0]["message"]["content"] or "", data.get("usage", {}) or {}
 
 
-async def tavily_search(client: httpx.AsyncClient, query: str) -> list[dict]:
-    r = await client.post(
-        TAVILY_URL,
-        headers={"Authorization": f"Bearer {TAVILY_API_KEY}"},
-        json={"query": query, "search_depth": "advanced", "max_results": 5, "include_answer": False},
-        timeout=60,
-    )
+async def tavily_search(client: httpx.AsyncClient, query: str, news_days: int | None = None) -> list[dict]:
+    """General web search, or (news_days set) a news search restricted to the last N days."""
+    body = {"query": query, "search_depth": "advanced", "max_results": 5, "include_answer": False}
+    if news_days:
+        body |= {"topic": "news", "days": news_days}
+    r = await client.post(TAVILY_URL, headers={"Authorization": f"Bearer {TAVILY_API_KEY}"}, json=body, timeout=60)
     r.raise_for_status()
-    return r.json().get("results", [])
+    results = r.json().get("results", [])
+    for x in results:
+        x["_news"] = bool(news_days)
+    return results
+
+
+async def gather_evidence(client: httpx.AsyncClient, claim: dict, query: str) -> list[dict]:
+    """Hybrid retrieval: recent news (catches changes from the last days) + general web (stable reference pages).
+    General pages alone miss fresh changes, e.g. a CEO who resigned 3 days ago is still listed on profile pages."""
+    searches = [tavily_search(client, query)]
+    if claim.get("volatility") in ("high", "medium") or claim.get("category") in NEWS_CATEGORIES:
+        searches.insert(0, tavily_search(client, claim.get("news_query") or claim["claim"], news_days=NEWS_DAYS))
+    merged, seen = [], set()
+    for res in await asyncio.gather(*searches, return_exceptions=True):
+        if isinstance(res, Exception):
+            claim.setdefault("search_errors", []).append(str(res))
+            continue
+        for r in res:
+            if r.get("url") not in seen:
+                seen.add(r.get("url"))
+                merged.append(r)
+    return merged[:MAX_EVIDENCE]
 
 
 def freshness_score(verdict: str, confidence: float, volatility: str) -> int:
@@ -121,12 +150,9 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
     year = str(date.today().year)
     if claim.get("volatility") == "high" and year not in query:  # bias fast-moving facts to recent pages
         query = f"{query} {year}"
-    try:
-        results = await tavily_search(client, query)
-    except Exception as e:  # keep the report alive if one search fails
-        results, claim["search_error"] = [], str(e)
+    results = await gather_evidence(client, claim, query)
     evidence = "\n\n".join(
-        f"[{i}] {r.get('title', '')} ({r.get('url', '')})"
+        f"[{i}]{' [NEWS]' if r.get('_news') else ''} {r.get('title', '')} ({r.get('url', '')})"
         + (f" published {r['published_date']}" if r.get("published_date") else "")
         + f"\n{(r.get('content') or '')[:700]}"
         for i, r in enumerate(results)
@@ -134,7 +160,8 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
     judged, usage = {"verdict": "unverified", "confidence": 0, "reason": "No evidence found."}, {}
     if results:
         content, usage = await chat(client, [{"role": "user", "content": JUDGE_PROMPT.format(
-            today=date.today().isoformat(), claim=claim["claim"], evidence=evidence)}], json_mode=True)
+            today=date.today().isoformat(), news_days=NEWS_DAYS, claim=claim["claim"], evidence=evidence)}],
+            json_mode=True)
         judged = _parse_json(content)
     verdict = judged.get("verdict", "unverified")
     if verdict not in ("current", "outdated", "unverified"):
@@ -142,7 +169,7 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
     score = freshness_score(verdict, judged.get("confidence", 0), claim.get("volatility", "medium"))
     ids = [i for i in judged.get("source_ids", []) if isinstance(i, int) and 0 <= i < len(results)]
     sources = [{"title": results[i].get("title"), "url": results[i].get("url"),
-                "published_date": results[i].get("published_date")} for i in (ids or range(min(2, len(results))))]
+                "published_date": results[i].get("published_date"), "news": results[i].get("_news", False)} for i in (ids or range(min(2, len(results))))]
     return {**claim, "verdict": verdict, "confidence": judged.get("confidence", 0),
             "current_fact": judged.get("current_fact", ""), "reason": judged.get("reason", ""),
             "freshness_score": score, "label": label(score), "sources": sources, "_usage": usage}

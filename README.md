@@ -6,7 +6,7 @@
 FreshGuard is a **verification layer that runs alongside the Bifrost AI gateway**. Any LLM answer, whether from your own app, a chatbot or one pasted in by a user, gets:
 
 1. **Claim extraction:** an LLM, called through Bifrost, pulls out the *time-sensitive* factual claims. These are prices, API/software versions, laws, leadership, company facts and "latest/current" statements. Timeless facts are ignored.
-2. **Live verification:** each claim is re-checked against the live web with **Tavily**. Fast-changing claims are biased toward recent pages.
+2. **Live verification (hybrid retrieval):** for each claim, two **Tavily** searches run in parallel. A **news search limited to the last 30 days** looks for recent *changes*, and a general web search finds reference pages. News is ranked first and labelled `[NEWS]` for the judge.
 3. **Judgment + freshness score:** a judge LLM, also called through Bifrost, compares the claim with the dated evidence. It returns `current` / `outdated` / `unverified`, a **0–100 freshness score**, the *current fact*, and **source links**.
 
 It plugs into Bifrost in **three ways**, each through a public Bifrost extension point or interface:
@@ -40,6 +40,19 @@ Hackathon: Geek Room Global AI Hackathon 2026 · Pitch deck: [docs/FreshGuard_Pi
 - **Integrated Tavily problem statement:** *Stale-Answer Detector*.
 
 ---
+
+## Caught in the wild: a change from 3 days ago
+
+On 12 Nov 2026 Jensen Huang resigned as NVIDIA's CEO, and Colette Kress was named interim CEO. While we were building this, our *own AI coding assistant* still answered "Jensen Huang".
+
+The first FreshGuard version **also rated that claim fresh (99/100)**. It only searched the general web, where company profiles still list Huang. We added recent-news retrieval and an evidence rule: credible recent news of a change overrides older pages. Now:
+
+| Claim | Before | After | Evidence |
+|---|---|---|---|
+| "The CEO of NVIDIA is Jensen Huang." | fresh · 99 ❌ | **stale · 0** ✅ | NVIDIA newsroom "CEO transition", NPR, AP… (12–13 Nov 2026) |
+| "Satya Nadella is the CEO of Microsoft." *(control)* | fresh | **fresh · 99** ✅ | Nov 2026 news still names Nadella |
+
+A regression test (`test_recent_news_overrides_stale_profile_pages`) locks this in.
 
 ## Example (real output)
 
@@ -129,6 +142,7 @@ See [`bifrost-plugin/README.md`](bifrost-plugin/README.md) for the `config.json`
 | `FG_ANSWER_MODEL` | `FG_MODEL` | model that answers questions in the UI |
 | `FG_FALLBACK_MODEL` | | Bifrost fallback model if the primary fails |
 | `FG_MAX_CLAIMS` | `6` | maximum claims checked per answer |
+| `FG_NEWS_DAYS` | `30` | recency window of the news search |
 | `BIFROST_URL` | `http://localhost:8080` | |
 
 ---
@@ -198,7 +212,7 @@ tests/                      offline Python tests
 - The project was built during the hackathon with help from an AI coding assistant (Claude Code).
 
 ## Limitations & next steps
-- Judgments are only as good as the retrieved evidence. Low-evidence claims are reported as `uncertain` instead of guessed.
+- Judgments are only as good as the retrieved evidence. Low-evidence claims are reported as `uncertain` instead of guessed. Changes newer than the search index (minutes old) can still be missed.
 - Streaming responses aren't checked yet; the proxy and the plugin handle non-streaming completions.
 - On Groq's free tier, `gpt-oss-120b` is limited to 8k tokens/min. One check uses about 5k tokens, so Bifrost's fallback model takes over under load.
 - Next steps:

@@ -46,3 +46,40 @@ def test_end_to_end_flags_stale_claim():
     assert cl["label"] == "stale" and cl["current_fact"] == "Python 3.14"
     assert cl["sources"][0]["url"] == "https://python.org"
     assert rep["llm_usage"]["total_tokens"] == 30
+
+
+def test_recent_news_overrides_stale_profile_pages():
+    """Regression: a CEO who resigned days ago is still listed on profile pages.
+    FreshGuard must also search recent news and show it to the judge, marked [NEWS]."""
+    seen = {"news_searches": 0, "judge_prompt": ""}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "tavily" in str(req.url):
+            body = json.loads(req.content)
+            if body.get("topic") == "news":
+                seen["news_searches"] += 1
+                return httpx.Response(200, json={"results": [{"title": "Jensen Huang resigns as Nvidia CEO",
+                    "url": "https://apnews.com/x", "content": "Board names Colette Kress interim CEO.",
+                    "published_date": "Thu, 12 Nov 2026"}]})
+            return httpx.Response(200, json={"results": [{"title": "NVIDIA leadership",
+                "url": "https://profile.example/nvidia", "content": "Jensen Huang, CEO."}]})
+        prompt = json.loads(req.content)["messages"][-1]["content"]
+        if "extract up to" in prompt:
+            out = {"claims": [{"claim": "The CEO of NVIDIA is Jensen Huang.", "category": "leadership",
+                               "volatility": "medium", "search_query": "NVIDIA CEO",
+                               "news_query": "NVIDIA CEO steps down"}]}
+        else:
+            seen["judge_prompt"] = prompt
+            out = {"verdict": "outdated", "confidence": 0.95, "current_fact": "Colette Kress (interim, Nov 2026)",
+                   "reason": "Recent news reports resignation.", "source_ids": [0]}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(out)}}], "usage": {}})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            return await pipeline.check_answer("The CEO of NVIDIA is Jensen Huang.", c)
+    rep = asyncio.run(run())
+    assert seen["news_searches"] == 1
+    assert "[0] [NEWS] Jensen Huang resigns" in seen["judge_prompt"]   # news ranked first and labelled
+    assert "profile.example" in seen["judge_prompt"]                    # general web still included
+    cl = rep["claims"][0]
+    assert cl["label"] == "stale" and cl["sources"][0]["news"] is True
