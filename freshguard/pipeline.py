@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from datetime import date
 
 import httpx
@@ -151,7 +152,32 @@ async def extract_claims(client: httpx.AsyncClient, answer: str) -> tuple[list[d
     return [c for c in claims if c.get("claim")], usage
 
 
+# ---- verdict cache: identical claims re-checked within the TTL reuse the last verdict ----
+# Saves Tavily credits, LLM tokens and latency on repeated questions. Fast-changing facts expire sooner.
+CACHE_ENABLED = os.getenv("FG_CACHE", "1") != "0"
+CACHE_TTL_S = {"high": 3600, "medium": 6 * 3600, "low": 24 * 3600}
+_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def _cache_key(claim: dict) -> str:
+    text = re.sub(r"[^a-z0-9$.%]+", " ", claim["claim"].lower()).strip()
+    return f"{text}|{NEWS_DAYS}|{FG_MODEL}"
+
+
 async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
+    if CACHE_ENABLED:
+        hit = _CACHE.get(_cache_key(claim))
+        if hit and hit[0] > time.time():
+            return {**hit[1], **{k: claim[k] for k in ("claim", "category", "volatility") if k in claim},
+                    "cached": True, "_usage": {}}
+    result = await _verify_claim_uncached(client, claim)
+    if CACHE_ENABLED and not claim.get("search_errors"):
+        ttl = CACHE_TTL_S.get(claim.get("volatility", "medium"), CACHE_TTL_S["medium"])
+        _CACHE[_cache_key(claim)] = (time.time() + ttl, {**result, "_usage": {}})
+    return result
+
+
+async def _verify_claim_uncached(client: httpx.AsyncClient, claim: dict) -> dict:
     query = claim.get("search_query") or claim["claim"]
     year = str(date.today().year)
     if claim.get("volatility") == "high" and year not in query:  # bias fast-moving facts to recent pages
@@ -178,7 +204,7 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict) -> dict:
                 "published_date": results[i].get("published_date"), "news": results[i].get("_news", False)} for i in (ids or range(min(2, len(results))))]
     return {**claim, "verdict": verdict, "confidence": judged.get("confidence", 0),
             "current_fact": judged.get("current_fact", ""), "reason": judged.get("reason", ""),
-            "freshness_score": score, "label": label(score), "sources": sources, "_usage": usage}
+            "freshness_score": score, "label": label(score), "sources": sources, "cached": False, "_usage": usage}
 
 
 def _add_usage(total: dict, u: dict) -> None:

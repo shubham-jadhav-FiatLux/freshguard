@@ -144,6 +144,7 @@ See [`bifrost-plugin/README.md`](bifrost-plugin/README.md) for the `config.json`
 | `FG_MAX_CLAIMS` | `6` | maximum claims checked per answer |
 | `FG_NEWS_DAYS` | `365` | recency window of the news search (`0` = web only) |
 | `BIFROST_URL` | `http://localhost:8080` | |
+| `FG_CACHE` | `1` | verdict cache: repeat checks of a claim reuse the last verdict for 1 h / 6 h / 24 h (high / medium / low volatility). `0` disables it; the benchmark always disables it |
 
 ---
 
@@ -256,7 +257,6 @@ tests/                      offline Python tests
 - On Groq's free tier, `gpt-oss-120b` is limited to 8k tokens/min. One check uses about 5k tokens, so Bifrost's fallback model takes over under load.
 - Next steps:
   - publish a Bifrost image variant with the Go plugin preloaded;
-  - cache verdicts per claim with a TTL by volatility;
   - add per-domain trusted-source lists such as official docs and pricing pages.
 
 ## License

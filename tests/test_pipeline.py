@@ -83,3 +83,27 @@ def test_recent_news_overrides_stale_profile_pages():
     assert "profile.example" in seen["judge_prompt"]                    # general web still included
     cl = rep["claims"][0]
     assert cl["label"] == "stale" and cl["sources"][0]["news"] is True
+
+
+def test_verdict_cache_reuses_recent_result():
+    """Second check of the same claim must not hit search or the LLM again."""
+    calls = {"n": 0}
+    base = _mock_transport()
+
+    def counting(req):
+        calls["n"] += 1
+        return base.handle_request(req)
+
+    async def run():
+        pipeline._CACHE.clear()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(counting)) as c:
+            first = await pipeline.check_answer("The latest Python is 3.11.", c)
+            n_first = calls["n"]
+            second = await pipeline.check_answer("The latest Python is 3.11.", c)
+        return first, second, n_first
+    first, second, n_first = asyncio.run(run())
+    assert first["claims"][0]["cached"] is False
+    assert second["claims"][0]["cached"] is True
+    assert second["claims"][0]["label"] == first["claims"][0]["label"]
+    assert calls["n"] == n_first + 1          # only the extraction call repeats
+    pipeline._CACHE.clear()

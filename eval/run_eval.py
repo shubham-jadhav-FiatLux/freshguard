@@ -45,6 +45,8 @@ def correct(label: str, pred: str) -> bool:
 
 
 async def run(name: str) -> None:
+    import os
+    os.environ["FG_CACHE"] = "0"  # every benchmark check must hit live search + the judge
     from freshguard import pipeline  # imported here so FG_* env vars apply
     CLAIMS = load(name)
     RESULTS.mkdir(exist_ok=True)

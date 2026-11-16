@@ -158,7 +158,9 @@ function render(rep) {
     : rep.stale_count ? `${rep.stale_count} of ${n} time-sensitive claims look outdated`
     : `${n} time-sensitive claims checked`;
   const u = rep.llm_usage || {};
-  $("meta").textContent = `Checked ${rep.checked_on} · ${rep.tavily_searches} Tavily searches · ${u.total_tokens || 0} tokens via Bifrost (${rep.judge_model})`;
+  const cached = rep.claims.filter((c) => c.cached).length;
+  $("meta").textContent = `Checked ${rep.checked_on} · ${u.total_tokens || 0} tokens via Bifrost (${rep.judge_model})` +
+    (cached ? ` · ${cached} of ${rep.claims.length} verdicts from cache` : "");
   $("claims").innerHTML = rep.claims.map((cl) => `
     <div class="claim ${cl.label}">
       <div class="claim-top"><div>${esc(cl.claim)}</div><span class="badge">${cl.label} · ${cl.freshness_score}</span></div>
