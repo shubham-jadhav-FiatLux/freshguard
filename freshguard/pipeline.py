@@ -57,7 +57,7 @@ Rules:
 - Numbers that differ only by rounding or formatting ($19.99 vs "$20", 3.15 vs 3.15.0) are the SAME fact;
   only call a number outdated if the evidence explicitly gives a different current value or reports a change.
 - Never call something "the latest" unless the evidence is recent. Mention the evidence date in current_fact.
-- If evidence is missing or ambiguous, say "unverified".
+- If evidence is missing or ambiguous, say "unverified".{extra_rules}
 
 CLAIM: {claim}
 
@@ -69,6 +69,23 @@ Return ONLY JSON: {{"verdict": "current"|"outdated"|"unverified",
 "current_fact": "<what is true now according to evidence, or empty>",
 "reason": "<one short sentence>",
 "source_ids": [<ids of evidence items you relied on>]}}"""
+
+
+# Judge rule set v2 (added after held-out error analysis; enable with FG_JUDGE_RULES=v2).
+# Held-out failure: "Takaichi is Japan's PM" was judged outdated because her cabinet formally resigned on
+# 18 Feb 2026 - but parliament re-elected her the same day. Procedural events must not be read as changes.
+JUDGE_RULES = os.getenv("FG_JUDGE_RULES", "v1")
+JUDGE_RULES_V2 = """
+- Procedural or temporary events do NOT end a role or change a fact if they are reversed or followed by
+  reappointment: a cabinet's formal resignation before re-election, a caretaker period, a re-election or
+  renewal, a temporary leave. Check whether later evidence shows the same person/value still in place
+  (e.g. re-elected, reappointed, still acting in the role) before calling the claim outdated.
+- When the most recent evidence shows the claim's subject still active in the role (recent official
+  activity, statements, appearances), prefer "current" over an older report of a change."""
+
+
+def judge_extra_rules() -> str:
+    return JUDGE_RULES_V2 if JUDGE_RULES == "v2" else ""
 
 
 def _parse_json(text: str) -> dict:
@@ -192,7 +209,8 @@ async def _verify_claim_uncached(client: httpx.AsyncClient, claim: dict) -> dict
     judged, usage = {"verdict": "unverified", "confidence": 0, "reason": "No evidence found."}, {}
     if results:
         content, usage = await chat(client, [{"role": "user", "content": JUDGE_PROMPT.format(
-            today=date.today().isoformat(), news_days=NEWS_DAYS, claim=claim["claim"], evidence=evidence)}],
+            today=date.today().isoformat(), news_days=NEWS_DAYS, claim=claim["claim"], evidence=evidence,
+            extra_rules=judge_extra_rules())}],
             json_mode=True)
         judged = _parse_json(content)
     verdict = judged.get("verdict", "unverified")

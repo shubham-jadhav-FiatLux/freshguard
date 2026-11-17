@@ -107,3 +107,15 @@ def test_verdict_cache_reuses_recent_result():
     assert second["claims"][0]["label"] == first["claims"][0]["label"]
     assert calls["n"] == n_first + 1          # only the extraction call repeats
     pipeline._CACHE.clear()
+
+
+def test_judge_rules_v2_flag(monkeypatch):
+    """v1 (default, used for the frozen held-out runs) adds nothing; v2 adds the procedural-event rule."""
+    monkeypatch.setattr(pipeline, "JUDGE_RULES", "v1")
+    assert pipeline.judge_extra_rules() == ""
+    v1 = pipeline.JUDGE_PROMPT.format(today="2026-11-17", news_days=365, claim="c", evidence="e", extra_rules="")
+    assert "Procedural" not in v1
+    monkeypatch.setattr(pipeline, "JUDGE_RULES", "v2")
+    v2 = pipeline.JUDGE_PROMPT.format(today="2026-11-17", news_days=365, claim="c", evidence="e",
+                                      extra_rules=pipeline.judge_extra_rules())
+    assert "reappointment" in v2 and v2.startswith(v1.split("{")[0][:40])

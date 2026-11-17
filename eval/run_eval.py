@@ -49,6 +49,8 @@ async def run(name: str) -> None:
     os.environ["FG_CACHE"] = "0"  # every benchmark check must hit live search + the judge
     from freshguard import pipeline  # imported here so FG_* env vars apply
     CLAIMS = load(name)
+    if os.getenv("FG_EVAL_LIMIT"):  # small trial runs, e.g. to probe a provider's free quota
+        CLAIMS = CLAIMS[: int(os.environ["FG_EVAL_LIMIT"])]
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"{name}.jsonl"
     done = {json.loads(l)["id"] for l in out.read_text().splitlines()} if out.exists() else set()
