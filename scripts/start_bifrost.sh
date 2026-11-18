@@ -16,6 +16,11 @@ add() { providers+=("\"$1\": {\"keys\": [{\"name\": \"$1-key\", \"value\": \"env
 
 joined=$(IFS=,; echo "${providers[*]}")
 FG_MCP_URL="${FG_MCP_URL:-http://host.docker.internal:8001/mcp}"
+# Optional dashboard login (needed to view logs in the Bifrost UI). Inference stays open for FreshGuard.
+AUTH=""
+if [ -n "${BIFROST_ADMIN_USER:-}" ] && [ -n "${BIFROST_ADMIN_PASSWORD:-}" ]; then
+  AUTH=', "auth_config": { "admin_username": "env.BIFROST_ADMIN_USER", "admin_password": "env.BIFROST_ADMIN_PASSWORD", "is_enabled": true }'
+fi
 cat > bifrost-data/config.json <<EOF
 {
   "client": { "enable_logging": true, "enforce_auth_on_inference": false },
@@ -29,7 +34,7 @@ cat > bifrost-data/config.json <<EOF
       "tools_to_auto_execute": ["*"]
     }],
     "tool_manager_config": { "max_agent_depth": 5, "tool_execution_timeout": "90s" }
-  }
+  }$AUTH
 }
 EOF
 

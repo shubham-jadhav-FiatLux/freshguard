@@ -119,3 +119,10 @@ def test_judge_rules_v2_flag(monkeypatch):
     v2 = pipeline.JUDGE_PROMPT.format(today="2026-11-17", news_days=365, claim="c", evidence="e",
                                       extra_rules=pipeline.judge_extra_rules())
     assert "reappointment" in v2 and v2.startswith(v1.split("{")[0][:40])
+
+
+def test_extractor_keeps_time_qualifiers():
+    """Rehearsal regression (18 Nov 2026): 'won the most recent World Cup ... in the 2022 final' was extracted as the
+    timeless 'won the 2022 World Cup'. The extraction prompt must instruct keeping 'most recent'/'latest' qualifiers."""
+    p = pipeline.EXTRACT_PROMPT
+    assert "most recent" in p and "never turn it into a historical statement" in p and "Resolve hedges" in p

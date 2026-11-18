@@ -276,6 +276,8 @@ tests/                      offline Python tests
 - The project was built during the hackathon with help from an AI coding assistant (Claude Code).
 
 ## Limitations & next steps
+- Hedged or time-qualified claims were mis-extracted in the video rehearsal (18 Nov 2026). "Argentina won the *most recent* World Cup… in the 2022 final" became the timeless "won the 2022 World Cup", and "the latest kernel is 6.x, 6.12 *or later*" was judged fresh. The extractor now keeps qualifiers ("most recent", "latest", "reigning") and resolves hedges. Re-check: all three claims (World Cup, Super Bowl, Linux) are correctly stale. The benchmark numbers above predate this fix.
+- The benchmarks score the stale/fresh **verdict**, not the wording of the "current fact". In a rehearsal run the verdict on "the Chiefs are the most recent Super Bowl champions" was correctly *stale*, but the suggested current fact named the 2025 winner instead of the 2026 Seahawks. Treat `current_fact` as a lead to check, and rely on the cited sources.
 - Judgments are only as good as the retrieved evidence. Low-evidence claims are reported as `uncertain` instead of guessed. Changes newer than the search index (minutes old) can still be missed.
 - Streaming responses aren't checked yet; the proxy and the plugin handle non-streaming completions.
 - On Groq's free tier, `gpt-oss-120b` is limited to 8k tokens/min. One check uses about 5k tokens, so Bifrost's fallback model takes over under load.

@@ -36,7 +36,13 @@ From the ANSWER below, extract up to {n} atomic factual claims that are TIME-SEN
 change over time (prices, plans, API/software versions, laws/regulations, who holds a role, company
 facts, statistics, "latest"/"current"/"newest" statements, release dates). Skip timeless facts and opinions.
 
-Return ONLY JSON: {{"claims": [{{"claim": "<self-contained statement, resolve pronouns>",
+Keep the time qualifier that makes a claim time-sensitive. If the answer says "most recent", "latest",
+"current", "newest" or "reigning", the claim MUST keep that wording (e.g. "The most recent FIFA World Cup was won
+by Argentina"), even if the answer also names a year: never turn it into a historical statement ("Argentina won the
+2022 World Cup"), which stays true forever. Resolve hedges into the concrete assertion: "the latest kernel is 6.x,
+6.12 or later" becomes "The latest major Linux kernel series is 6.x".
+
+Return ONLY JSON: {{"claims": [{{"claim": "<self-contained statement, resolve pronouns, keep time qualifiers>",
 "category": one of {cats}, "volatility": "high"|"medium"|"low",
 "search_query": "<web search query that would verify it today>",
 "news_query": "<short news query that would surface a recent CHANGE to this fact, e.g. 'X CEO steps down'>"}}]}}

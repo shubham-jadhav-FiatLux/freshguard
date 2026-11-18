@@ -108,6 +108,7 @@
   .src a { color: var(--cyan); font: 12.5px/1.5 var(--mono); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .src a:hover { text-decoration: underline; }
   .src time { color: var(--dim); }
+  .fo { color: var(--violet); }
   .cached { font: 600 10px var(--mono); color: var(--violet); letter-spacing: .08em; margin-left: 8px; }
   .hidden { display: none; }
   footer { margin-top: 28px; font: 12px var(--mono); color: var(--page-muted); text-align: center; }
@@ -289,7 +290,13 @@ function render(rep) {
     : `All ${n} time-sensitive claim${n > 1 ? "s" : ""} still current`;
   const u = rep.llm_usage || {};
   const cached = rep.claims.filter((c) => c.cached).length;
-  $("meta").textContent = `checked ${rep.checked_on} · ${u.total_tokens || 0} tokens via Bifrost · judge ${rep.judge_model}` +
+  // Show the model(s) that actually answered: Bifrost may have failed over from the configured judge.
+  const configured = (rep.judge_model || "").split("/").slice(1).join("/");
+  const used = Object.keys(u.models || {});
+  const answered = used.length ? used.join(" + ") : configured;
+  const failover = used.length && used.some((m) => m !== configured);
+  $("meta").innerHTML = `checked ${esc(rep.checked_on)} · ${u.total_tokens || 0} tokens via Bifrost · model ${esc(answered)}` +
+    (failover ? ` <span class="fo">↻ Bifrost failover from ${esc(configured)}</span>` : "") +
     (cached ? ` · ${cached}/${n} from cache` : "");
   const word = { fresh: "fresh", stale: "expired", uncertain: "uncertain" };
   $("claims").innerHTML = rep.claims.map((cl, idx) => `
