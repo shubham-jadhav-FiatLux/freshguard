@@ -67,7 +67,7 @@ async def api_ask(body: AskIn):
     try:
         async with httpx.AsyncClient() as c:
             answer, usage = await pipeline.chat(
-                c, [{"role": "system", "content": "Answer concisely from your own knowledge. Do not hedge."},
+                c, [{"role": "system", "content": "Answer concisely from your own knowledge in one or two plain sentences, without markdown. Do not hedge."},
                     {"role": "user", "content": body.question}],
                 model=body.model or pipeline.FG_ANSWER_MODEL, temperature=0.3)
             report = await pipeline.check_answer(answer, c)
@@ -84,8 +84,11 @@ async def proxy(request: Request):
         raise HTTPException(400, "FreshGuard proxy supports non-streaming requests only")
     try:
         async with httpx.AsyncClient() as c:
-            r = await c.post(f"{pipeline.BIFROST_URL}/v1/chat/completions", json=body, timeout=120,
-                             headers={"x-freshguard-skip": "1"})  # we attach our own report
+            # We attach our own report (skip header). Bifrost's MCP tools stay off unless the caller opts in,
+            # otherwise Bifrost Agent Mode would run a tool loop inside what should be a plain completion.
+            headers = {"x-freshguard-skip": "1",
+                       "x-bf-mcp-include-clients": request.headers.get("x-bf-mcp-include-clients", "")}
+            r = await c.post(f"{pipeline.BIFROST_URL}/v1/chat/completions", json=body, timeout=120, headers=headers)
             r.raise_for_status()
             data = r.json()
             text = data["choices"][0]["message"].get("content") or ""

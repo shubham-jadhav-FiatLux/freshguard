@@ -222,6 +222,8 @@
 let mode = "ask";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// minimal, escape-first markdown: **bold** and "- " bullets only
+const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^\s*[-*]\s+/gm, "• ");
 const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
 const ring = { fresh: "var(--mint)", stale: "var(--coral)", uncertain: "var(--amber)" };
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
@@ -269,7 +271,7 @@ $("go").onclick = async () => {
     if (!r.ok) throw new Error(data.detail || r.statusText);
     const report = mode === "ask" ? data.report : data;
     $("answerCard").classList.toggle("hidden", mode !== "ask");
-    if (mode === "ask") $("answer").textContent = data.answer;
+    if (mode === "ask") $("answer").innerHTML = md(data.answer);
     render(report);
   } catch (e) {
     $("err").textContent = "Something went wrong: " + e.message;

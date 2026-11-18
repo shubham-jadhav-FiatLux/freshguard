@@ -3,6 +3,9 @@
 > LLMs answer confidently from training data that is months or years old.
 > FreshGuard catches the outdated parts of an answer before your users act on them.
 
+![FreshGuard flags an LLM's outdated answer about NVIDIA's and Apple's CEOs, with the current facts and dated sources](docs/screenshot.png)
+*Real run on 18 Nov 2026: the model still said Jensen Huang and Tim Cook. FreshGuard flags both as expired and cites NVIDIA's own newsroom, Fox Business, CNBC and more.*
+
 FreshGuard is a **verification layer that runs alongside the Bifrost AI gateway**. Any LLM answer, whether from your own app, a chatbot or one pasted in by a user, gets:
 
 1. **Claim extraction:** an LLM, called through Bifrost, pulls out the *time-sensitive* factual claims. These are prices, API/software versions, laws, leadership, company facts and "latest/current" statements. Timeless facts are ignored.
