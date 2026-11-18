@@ -187,9 +187,29 @@ Report shape:
 
 ---
 
-## Evaluation: 34-claim freshness benchmark
+## Evaluation
 
-`eval/claims.jsonl` holds 34 single-claim "LLM answers". Each is labelled against **dated primary or major-outlet sources, checked on 15 Nov 2026** (the source URL is stored with each claim):
+FreshGuard is measured on two labelled sets of single-claim "LLM answers". Every label is checked against dated primary or major-outlet sources, and the source URL is stored with the claim.
+
+### Held-out set: 33 unseen claims, 3 runs (`eval/holdout.jsonl`)
+
+This set was built **after** all tuning and never used to change the system. It covers sports results (World Cup, Super Bowl, NBA, Wimbledon), the Nobel Prize in Literature, the Ballon d'Or, office holders (UK, Canada, Germany and Japan prime ministers/chancellors), software releases (Ubuntu 26.04, JDK 27, Linux 7.x, Kubernetes, and PostgreSQL 19, which is *not yet* released), the USPS stamp price, controls and timeless facts. Judge: `gpt-oss-120b` only, with the fallback disabled and the per-call model log confirming no fallback ran.
+
+| Metric | Run 1 | Run 2 | Run 3 | **Mean** | Web search only |
+|---|---|---|---|---|---|
+| Accuracy | 93.9 % | 97.0 % | 100 % | **97.0 % ± 3.1** | 93.9 % |
+| Stale claims caught | 93.8 % | 100 % | 100 % | **97.9 %** | 87.5 % |
+| 2026 changes caught | 12/13 | 13/13 | 13/13 | **38/39** | 12/13 |
+| **Stale claims passed as fresh** (the dangerous error) | 0 | 0 | 0 | **0 / 48** | **1 / 16** |
+| False alarms on current facts | 1/14 | 1/14 | 0/14 | 2/42 | 0/14 |
+
+- **What the news search adds on unseen claims:** it removes the dangerous error. Without it, "Shigeru Ishiba is Japan's PM" was confirmed as *current*. Its accuracy gain is smaller here than on the development set.
+- **Remaining errors:** one "uncertain" verdict (run 1, the NBA champion) and a consistent false alarm. "Sanae Takaichi is Japan's PM" was judged outdated because her cabinet *formally resigned* on 18 Feb 2026, but parliament **re-elected her the same day**.
+- **Fix (judge rules v2, now the default):** procedural events followed by reappointment (cabinet resignations, caretaker periods, re-elections) are not changes, and recent evidence of the subject still acting in the role counts. Live check on `gpt-oss-120b`: Takaichi → current ✓. Regression cases stay correct: Ishiba, NVIDIA's Huang, Apple's Cook and UK's Starmer → stale ✓ (5/5). The held-out numbers above are from v1 runs; v2 has not been re-run on the full set.
+
+### Development set: 34 claims (`eval/claims.jsonl`)
+
+This set was used while building FreshGuard, including choosing the 365-day news window, so treat its numbers as optimistic. It holds 34 claims labelled on 15 Nov 2026: Each is labelled against **dated primary or major-outlet sources, checked on 15 Nov 2026** (the source URL is stored with each claim):
 
 | Group | # | Examples |
 |---|---|---|
@@ -217,12 +237,13 @@ Full pipeline (Bifrost → Groq `gpt-oss-120b` judge, Tavily retrieval), one run
 - *news 30 d*: missed Toyota's April-2026 CEO change, which falls outside the window. It also flagged Rust 1.100 (released 3 days earlier) as stale, because version-tracker sites still showed 1.99.1.
 - *news 365 d*: one error. It flagged Netflix's correct $19.99 as stale because an article rounded the price to "$20", a numeric-rounding mistake by the judge.
 
-**Caveats.** This is a small benchmark (34 claims), each configuration ran once, and the same set was used to choose the 365-day default. Treat the numbers as indicative.
+**Caveats.** These are small sets. Development-set configurations ran once each, and the held-out set ran three times. The results show where FreshGuard is reliable and where it isn't; they are not a leaderboard score.
 
 Reproduce:
 ```bash
-FG_NEWS_DAYS=365 .venv/bin/python -m eval.run_eval news_365
-FG_NEWS_DAYS=0   .venv/bin/python -m eval.run_eval web_only
+FG_FALLBACK_MODEL= .venv/bin/python -m eval.run_eval holdout_main_r1      # held-out (names starting holdout_)
+FG_FALLBACK_MODEL= FG_NEWS_DAYS=0 .venv/bin/python -m eval.run_eval holdout_main_web_only
+FG_NEWS_DAYS=365 .venv/bin/python -m eval.run_eval news_365                 # development set
 .venv/bin/python -m eval.run_eval --report
 ```
 

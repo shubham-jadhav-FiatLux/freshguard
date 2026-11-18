@@ -110,7 +110,7 @@ def test_verdict_cache_reuses_recent_result():
 
 
 def test_judge_rules_v2_flag(monkeypatch):
-    """v1 (default, used for the frozen held-out runs) adds nothing; v2 adds the procedural-event rule."""
+    """v1 (used for the frozen held-out runs) adds nothing; v2 (default) adds the procedural-event rule."""
     monkeypatch.setattr(pipeline, "JUDGE_RULES", "v1")
     assert pipeline.judge_extra_rules() == ""
     v1 = pipeline.JUDGE_PROMPT.format(today="2026-11-17", news_days=365, claim="c", evidence="e", extra_rules="")

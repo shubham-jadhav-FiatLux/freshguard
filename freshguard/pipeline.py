@@ -71,10 +71,10 @@ Return ONLY JSON: {{"verdict": "current"|"outdated"|"unverified",
 "source_ids": [<ids of evidence items you relied on>]}}"""
 
 
-# Judge rule set v2 (added after held-out error analysis; enable with FG_JUDGE_RULES=v2).
+# Judge rule set v2 (default since 18 Nov 2026; added after held-out error analysis; FG_JUDGE_RULES=v1 reverts).
 # Held-out failure: "Takaichi is Japan's PM" was judged outdated because her cabinet formally resigned on
 # 18 Feb 2026 - but parliament re-elected her the same day. Procedural events must not be read as changes.
-JUDGE_RULES = os.getenv("FG_JUDGE_RULES", "v1")
+JUDGE_RULES = os.getenv("FG_JUDGE_RULES", "v2")
 JUDGE_RULES_V2 = """
 - Procedural or temporary events do NOT end a role or change a fact if they are reversed or followed by
   reappointment: a cabinet's formal resignation before re-election, a caretaker period, a re-election or
