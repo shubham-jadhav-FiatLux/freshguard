@@ -4,111 +4,227 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FreshGuard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Palette shared with the pitch deck */
   :root {
-    --bg: #f6f7f9; --card: #fff; --ink: #14171f; --muted: #5f6675; --line: #e3e6eb;
-    --fresh: #1a8f5a; --fresh-bg: #e6f5ee; --stale: #c62f3a; --stale-bg: #fcebec;
-    --unc: #a86b00; --unc-bg: #fdf3e0; --accent: #3b5bdb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0f1115; --card: #181b22; --ink: #e8eaf0; --muted: #9aa1b0; --line: #2a2f3a;
-      --fresh: #4cc38a; --fresh-bg: #13281f; --stale: #ff6b75; --stale-bg: #2e171a;
-      --unc: #f0b44c; --unc-bg: #2c2312; --accent: #7c93ff; }
+    --page: #EAF1EF;        /* light background */
+    --page-ink: #0A1A1F;    /* dark ink for text + background animation */
+    --page-muted: #4E6267;
+    --card: #11262C;        /* dark cards */
+    --card-2: #173239;
+    --line: #2A4950;
+    --text: #EEF5F4;
+    --muted: #93AAAE;
+    --dim: #5F7A7F;
+    --mint: #2EE6A8;  --mint-d: #123D33;
+    --coral: #FF5D6C; --coral-d: #3D1A20;
+    --amber: #FFC24B; --amber-d: #3B3016;
+    --violet: #9B8CFF; --violet-d: #25224A;
+    --cyan: #4CC9F0;
+    --head: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
-  header h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; }
-  header p { margin: 4px 0 24px; color: var(--muted); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tab { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 6px 14px;
-    border-radius: 999px; cursor: pointer; font: inherit; }
-  .tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  textarea { width: 100%; min-height: 110px; resize: vertical; padding: 12px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
-  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
-  button.go { background: var(--accent); color: #fff; border: 0; padding: 10px 18px; border-radius: 8px;
-    font: inherit; font-weight: 600; cursor: pointer; }
-  button.go:disabled { opacity: .6; cursor: progress; }
-  .chip { font-size: 13px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px;
-    padding: 4px 10px; cursor: pointer; background: transparent; font-family: inherit; }
-  .muted { color: var(--muted); font-size: 13px; }
-  .chip.picked { border-style: solid; border-color: var(--accent); color: var(--ink); }
-  .answer { white-space: pre-wrap; }
+  html, body { margin: 0; }
+  body { background: var(--page); color: var(--page-ink); font: 15px/1.55 var(--body); min-height: 100vh; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+        /* keep the network lively at the edges but quiet behind the reading column */
+        -webkit-mask-image: radial-gradient(ellipse 520px 120% at 50% 40%, rgba(0,0,0,.18) 0, rgba(0,0,0,.18) 70%, #000 100%);
+                mask-image: radial-gradient(ellipse 520px 120% at 50% 40%, rgba(0,0,0,.18) 0, rgba(0,0,0,.18) 70%, #000 100%); }
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 44px 16px 72px; }
+
+  /* Header */
+  .brand { display: flex; align-items: center; gap: 10px; font: 700 13px/1 var(--head); letter-spacing: .32em; color: var(--page-ink); }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px rgba(46,230,168,.25); }
+  h1 { font: 700 clamp(30px, 5vw, 46px)/1.08 var(--head); letter-spacing: -.02em; margin: 18px 0 10px; color: var(--page-ink); }
+  .lede { color: var(--page-muted); font-size: 16px; max-width: 640px; margin: 0 0 22px; }
+  .stack { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .tag { font: 600 11px/1 var(--mono); letter-spacing: .06em; padding: 7px 10px; border-radius: 999px; background: var(--card); color: var(--text); }
+  .tag i { font-style: normal; color: var(--mint); }
+  .tag.v i { color: var(--violet); } .tag.c i { color: var(--cyan); }
+
+  /* Cards */
+  .card { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 22px;
+          margin-bottom: 16px; box-shadow: 0 18px 40px -24px rgba(10,26,31,.55); }
+  .label { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--card-2); border-radius: 999px; margin-bottom: 14px; }
+  .tab { border: 0; background: transparent; color: var(--muted); padding: 7px 15px; border-radius: 999px; cursor: pointer; font: 500 14px var(--body); }
+  .tab.on { background: var(--text); color: var(--card); }
+  textarea { width: 100%; min-height: 96px; resize: vertical; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
+             background: var(--card-2); color: var(--text); font: 16px/1.5 var(--body); }
+  textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .go { background: var(--mint); color: #062118; border: 0; padding: 11px 20px; border-radius: 10px; font: 600 15px var(--body); cursor: pointer; }
+  .go:hover { filter: brightness(1.06); } .go:disabled { opacity: .55; cursor: progress; }
+  .chip { font: 500 13px var(--body); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; background: transparent; }
+  .chip:hover { color: var(--text); }
+  .chip.picked { color: var(--card); background: var(--mint); border-color: var(--mint); }
+  .hint { font-size: 13px; color: var(--dim); }
+
+  /* Progress */
+  .steps { display: none; gap: 18px; margin-top: 16px; flex-wrap: wrap; font: 500 13px var(--body); color: var(--dim); }
+  .steps.on { display: flex; }
+  .step { display: flex; align-items: center; gap: 8px; }
+  .step .s { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .step.active { color: var(--text); } .step.active .s { background: var(--amber); animation: blink .9s ease-in-out infinite; }
+  .step.done { color: var(--muted); } .step.done .s { background: var(--mint); }
+  @keyframes blink { 50% { opacity: .3; } }
+  .err { color: var(--coral); font-size: 14px; margin-top: 12px; }
+
+  /* Answer */
+  .answer { white-space: pre-wrap; font-size: 16px; color: var(--text); }
+  .via { color: var(--violet); }
+
+  /* Report */
   .summary { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-  .gauge { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; flex: none; }
-  .gauge b { width: 72px; height: 72px; border-radius: 50%; background: var(--card); display: grid;
-    place-items: center; font-size: 24px; }
-  .claim { border: 1px solid var(--line); border-left-width: 5px; border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
-  .claim.fresh { border-left-color: var(--fresh); } .claim.stale { border-left-color: var(--stale); }
-  .claim.uncertain { border-left-color: var(--unc); }
-  .claim-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-  .badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-    padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-  .fresh .badge { color: var(--fresh); background: var(--fresh-bg); }
-  .stale .badge { color: var(--stale); background: var(--stale-bg); }
-  .uncertain .badge { color: var(--unc); background: var(--unc-bg); }
-  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 10px 0 8px; overflow: hidden; }
-  .bar i { display: block; height: 100%; }
-  .now { margin-top: 6px; } .now b { color: var(--fresh); }
-  .src a { color: var(--accent); font-size: 13px; text-decoration: none; display: block; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; }
-  .err { color: var(--stale); }
+  .gauge { width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .gauge b { width: 84px; height: 84px; border-radius: 50%; background: var(--card); display: grid; place-items: center;
+             font: 700 30px/1 var(--head); }
+  .gauge small { display: block; font: 500 10px var(--mono); color: var(--dim); text-align: center; margin-top: 2px; }
+  .headline { font: 600 20px/1.3 var(--head); }
+  .meta { font: 12px/1.6 var(--mono); color: var(--dim); margin-top: 6px; }
+  .claims { margin-top: 18px; display: grid; gap: 12px; }
+  .claim { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; animation: rise .35s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  .claim-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+  .claim-text { font: 600 16px/1.45 var(--body); color: var(--text); }
+  .pill { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 6px 10px; border-radius: 999px;
+          white-space: nowrap; border: 1px solid currentColor; }
+  .fresh .pill { color: var(--mint); background: var(--mint-d); }
+  .stale .pill { color: var(--coral); background: var(--coral-d); }
+  .uncertain .pill { color: var(--amber); background: var(--amber-d); }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 12px 0 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; transition: width .6s ease; }
+  .fresh .bar i { background: var(--mint); } .stale .bar i { background: var(--coral); } .uncertain .bar i { background: var(--amber); }
+  .why { font-size: 13px; color: var(--muted); }
+  .why .k { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .now { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--mint-d); color: var(--text); font-size: 14.5px; }
+  .now b { font: 700 11px var(--mono); letter-spacing: .14em; color: var(--mint); margin-right: 8px; }
+  .src { margin-top: 10px; display: grid; gap: 4px; }
+  .src a { color: var(--cyan); font: 12.5px/1.5 var(--mono); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src a:hover { text-decoration: underline; }
+  .src time { color: var(--dim); }
+  .cached { font: 600 10px var(--mono); color: var(--violet); letter-spacing: .08em; margin-left: 8px; }
   .hidden { display: none; }
+  footer { margin-top: 28px; font: 12px var(--mono); color: var(--page-muted); text-align: center; }
+  @media (max-width: 560px) { .claim-top { flex-direction: column; } .card { padding: 18px; } }
 </style>
 </head>
 <body>
+<canvas id="bg" aria-hidden="true"></canvas>
 <div class="wrap">
   <header>
-    <h1>FreshGuard</h1>
-    <p>Catches outdated facts in AI answers. Claims are checked live with Tavily and every LLM call is routed through Bifrost.</p>
+    <div class="brand"><span class="dot"></span>FRESHGUARD</div>
+    <h1>Facts expire.<br>We check the date.</h1>
+    <p class="lede">A live freshness check for LLM answers. Every time-sensitive claim is re-verified against recent news and the web, with a score and sources.</p>
+    <div class="stack">
+      <span class="tag v"><i>●</i> Bifrost gateway</span>
+      <span class="tag c"><i>●</i> Tavily news + web</span>
+      <span class="tag"><i>●</i> evidence-only judge</span>
+    </div>
   </header>
 
-  <div class="card">
-    <div class="tabs">
-      <button class="tab on" data-mode="ask">Ask an LLM</button>
-      <button class="tab" data-mode="check">Paste an AI answer</button>
+  <section class="card" aria-label="Input">
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-mode="ask" role="tab">Ask an LLM</button>
+      <button class="tab" data-mode="check" role="tab">Paste an AI answer</button>
     </div>
-    <textarea id="input" placeholder="Ask something time-sensitive…"></textarea>
+    <textarea id="input" aria-label="Question or answer" placeholder="Ask something time-sensitive…"></textarea>
     <div class="row">
       <button class="go" id="go">Ask &amp; verify</button>
-      <span class="muted" id="status"></span>
+      <span class="hint">Try:</span>
+      <span id="examples" style="display:contents">
+        <button class="chip" data-ask="Who is the CEO of NVIDIA, and who is the CEO of Apple?"
+          data-answer="NVIDIA is led by its co-founder and CEO Jensen Huang, while Tim Cook continues to serve as Apple's CEO.">NVIDIA &amp; Apple CEOs</button>
+        <button class="chip" data-ask="How much do Netflix's Standard plan and Spotify Premium Individual cost per month in the US?"
+          data-answer="Netflix's Standard ad-free plan costs $17.99 per month in the US, and Spotify Premium Individual costs $11.99 per month.">Streaming prices</button>
+        <button class="chip" data-ask="What are the latest stable versions of Python and Rust, and the newest Node.js LTS?"
+          data-answer="The latest stable Python is 3.13, the latest stable Rust is 1.85, and Node.js 22 is the newest LTS release.">Latest versions</button>
+      </span>
     </div>
-    <div class="row" id="examples">
-      <span class="muted">Try:</span>
-      <button class="chip" data-ask="Who is the CEO of NVIDIA, and who is the CEO of Apple?"
-        data-answer="NVIDIA is led by its co-founder and CEO Jensen Huang, while Tim Cook continues to serve as Apple's CEO.">NVIDIA &amp; Apple CEOs</button>
-      <button class="chip" data-ask="How much do Netflix's Standard plan and Spotify Premium Individual cost per month in the US?"
-        data-answer="Netflix's Standard ad-free plan costs $17.99 per month in the US, and Spotify Premium Individual costs $11.99 per month.">Streaming prices</button>
-      <button class="chip" data-ask="What are the latest stable versions of Python and Rust, and the newest Node.js LTS?"
-        data-answer="The latest stable Python is 3.13, the latest stable Rust is 1.85, and Node.js 22 is the newest LTS release.">Latest versions</button>
+    <div class="steps" id="steps">
+      <div class="step" data-i="0"><span class="s"></span>Asking the LLM</div>
+      <div class="step" data-i="1"><span class="s"></span>Extracting time-sensitive claims</div>
+      <div class="step" data-i="2"><span class="s"></span>Searching news + web</div>
+      <div class="step" data-i="3"><span class="s"></span>Judging the evidence</div>
     </div>
-  </div>
+    <div class="err hidden" id="err" role="alert"></div>
+  </section>
 
-  <div class="card hidden" id="answerCard">
-    <div class="muted">LLM answer (via Bifrost)</div>
+  <section class="card hidden" id="answerCard" aria-label="LLM answer">
+    <div class="label">LLM answer <span class="via">· via Bifrost</span></div>
     <div class="answer" id="answer"></div>
-  </div>
+  </section>
 
-  <div class="card hidden" id="reportCard">
+  <section class="card hidden" id="reportCard" aria-label="Freshness report" aria-live="polite">
     <div class="summary">
-      <div class="gauge" id="gauge"><b id="score">–</b></div>
+      <div class="gauge" id="gauge"><b><span><span id="score">–</span><small>/ 100</small></span></b></div>
       <div>
-        <div style="font-size:18px;font-weight:600" id="headline"></div>
-        <div class="muted" id="meta"></div>
+        <div class="label" style="margin-bottom:6px">Freshness report</div>
+        <div class="headline" id="headline"></div>
+        <div class="meta" id="meta"></div>
       </div>
     </div>
-    <div id="claims"></div>
-  </div>
+    <div class="claims" id="claims"></div>
+  </section>
+
+  <footer>FreshGuard · Bifrost + Tavily · Geek Room Global AI Hackathon 2026</footer>
 </div>
 
 <script>
+/* ---------- background: a slow network of "facts" in dark ink; nodes pulse mint (verified) or coral (expired) ---------- */
+(() => {
+  const cv = document.getElementById("bg"), ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, nodes = [], pulses = [], last = 0, boost = 1;
+  const INK = "10,26,31", MINT = "20,168,120", CORAL = "217,68,82";
+  function size() {
+    const d = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+    cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    const n = Math.round(Math.min(90, (W * H) / 16000));
+    nodes = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .18, vy: (Math.random() - .5) * .18, r: 1.4 + Math.random() * 1.8 }));
+  }
+  function frame(t) {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of nodes) {
+      if (!reduce) { p.x += p.vx * boost; p.y += p.vy * boost; }
+      if (p.x < -20) p.x = W + 20; if (p.x > W + 20) p.x = -20; if (p.y < -20) p.y = H + 20; if (p.y > H + 20) p.y = -20;
+    }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 150) { ctx.strokeStyle = `rgba(${INK},${0.14 * (1 - d / 150)})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    }
+    for (const p of nodes) { ctx.fillStyle = `rgba(${INK},.32)`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill(); }
+    if (!reduce && t - last > 900 / boost && nodes.length) {
+      last = t; const p = nodes[(Math.random() * nodes.length) | 0];
+      pulses.push({ p, c: Math.random() < .55 ? MINT : CORAL, t0: t });
+    }
+    pulses = pulses.filter((q) => t - q.t0 < 1800);
+    for (const q of pulses) {
+      const k = (t - q.t0) / 1800;
+      ctx.strokeStyle = `rgba(${q.c},${.55 * (1 - k)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(q.p.x, q.p.y, 4 + k * 26, 0, 6.283); ctx.stroke();
+      ctx.fillStyle = `rgba(${q.c},${.8 * (1 - k)})`; ctx.beginPath(); ctx.arc(q.p.x, q.p.y, q.p.r + 1.5, 0, 6.283); ctx.fill();
+    }
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  addEventListener("resize", size); size(); requestAnimationFrame(frame);
+  window.fgBoost = (on) => { boost = on ? 3 : 1; };   // faster, busier network while a check runs
+})();
+
+/* ---------- app ---------- */
 let mode = "ask";
 const $ = (id) => document.getElementById(id);
-const color = { fresh: "var(--fresh)", stale: "var(--stale)", uncertain: "var(--unc)" };
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
+const ring = { fresh: "var(--mint)", stale: "var(--coral)", uncertain: "var(--amber)" };
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 
 document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === t));
@@ -124,12 +240,26 @@ document.querySelectorAll("#examples .chip").forEach((c) => c.onclick = () => {
 });
 document.querySelector("#examples .chip").click();  // demo opens with the NVIDIA CEO case
 
+let stepTimer = null;
+function progress(on) {
+  const steps = [...document.querySelectorAll(".step")];
+  clearInterval(stepTimer);
+  $("steps").classList.toggle("on", on);
+  window.fgBoost && window.fgBoost(on);
+  if (!on) return;
+  // Steps advance on a timer (the API returns one response); they show the pipeline's real order.
+  let i = mode === "ask" ? 0 : 1;
+  steps[0].style.display = mode === "ask" ? "" : "none";
+  const paint = () => steps.forEach((s, k) => { s.classList.toggle("done", k < i); s.classList.toggle("active", k === i); });
+  paint();
+  stepTimer = setInterval(() => { if (i < 3) { i++; paint(); } }, 1600);
+}
+
 $("go").onclick = async () => {
   const text = $("input").value.trim();
   if (!text) return;
-  $("go").disabled = true;
-  $("status").textContent = mode === "ask" ? "Asking the LLM, extracting claims, searching the web…" : "Extracting claims, searching the web…";
-  $("status").className = "muted";
+  $("go").disabled = true; $("err").classList.add("hidden");
+  progress(true);
   try {
     const r = await fetch(mode === "ask" ? "/api/ask" : "/api/check", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -141,34 +271,36 @@ $("go").onclick = async () => {
     $("answerCard").classList.toggle("hidden", mode !== "ask");
     if (mode === "ask") $("answer").textContent = data.answer;
     render(report);
-    $("status").textContent = "";
   } catch (e) {
-    $("status").textContent = "Error: " + e.message;
-    $("status").className = "err";
-  } finally { $("go").disabled = false; }
+    $("err").textContent = "Something went wrong: " + e.message;
+    $("err").classList.remove("hidden");
+  } finally { $("go").disabled = false; progress(false); }
 };
 
 function render(rep) {
   $("reportCard").classList.remove("hidden");
-  const c = color[rep.overall_label];
   $("score").textContent = rep.overall_freshness;
-  $("gauge").style.background = `conic-gradient(${c} ${rep.overall_freshness * 3.6}deg, var(--line) 0)`;
+  $("gauge").style.background = `conic-gradient(${ring[rep.overall_label]} ${rep.overall_freshness * 3.6}deg, var(--line) 0)`;
   const n = rep.claims.length;
   $("headline").textContent = n === 0 ? "No time-sensitive claims found"
-    : rep.stale_count ? `${rep.stale_count} of ${n} time-sensitive claims look outdated`
-    : `${n} time-sensitive claims checked`;
+    : rep.stale_count ? `${rep.stale_count} of ${n} time-sensitive claim${n > 1 ? "s" : ""} expired`
+    : `All ${n} time-sensitive claim${n > 1 ? "s" : ""} still current`;
   const u = rep.llm_usage || {};
   const cached = rep.claims.filter((c) => c.cached).length;
-  $("meta").textContent = `Checked ${rep.checked_on} · ${u.total_tokens || 0} tokens via Bifrost (${rep.judge_model})` +
-    (cached ? ` · ${cached} of ${rep.claims.length} verdicts from cache` : "");
-  $("claims").innerHTML = rep.claims.map((cl) => `
-    <div class="claim ${cl.label}">
-      <div class="claim-top"><div>${esc(cl.claim)}</div><span class="badge">${cl.label} · ${cl.freshness_score}</span></div>
-      <div class="bar"><i style="width:${cl.freshness_score}%;background:${color[cl.label]}"></i></div>
-      <div class="muted">${esc(cl.category)} · volatility ${esc(cl.volatility)} · ${esc(cl.reason)}</div>
-      ${cl.current_fact && cl.verdict !== "current" ? `<div class="now"><b>Now:</b> ${esc(cl.current_fact)}</div>` : ""}
-      <div class="src">${(cl.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">↗ ${esc(s.title || s.url)}${s.published_date ? " · " + esc(s.published_date.slice(0, 16)) : ""}</a>`).join("")}</div>
-    </div>`).join("");
+  $("meta").textContent = `checked ${rep.checked_on} · ${u.total_tokens || 0} tokens via Bifrost · judge ${rep.judge_model}` +
+    (cached ? ` · ${cached}/${n} from cache` : "");
+  const word = { fresh: "fresh", stale: "expired", uncertain: "uncertain" };
+  $("claims").innerHTML = rep.claims.map((cl, idx) => `
+    <article class="claim ${cl.label}" style="animation-delay:${idx * 80}ms">
+      <div class="claim-top">
+        <div class="claim-text">${esc(cl.claim)}</div>
+        <span class="pill">${word[cl.label]} · ${cl.freshness_score}</span>
+      </div>
+      <div class="bar"><i style="width:${cl.freshness_score}%"></i></div>
+      <div class="why"><span class="k">${esc(cl.category)}</span> · ${esc(cl.reason)}${cl.cached ? '<span class="cached">CACHED</span>' : ""}</div>
+      ${cl.current_fact && cl.verdict !== "current" ? `<div class="now"><b>NOW</b>${esc(cl.current_fact)}</div>` : ""}
+      <div class="src">${(cl.sources || []).map((s) => `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener noreferrer">↗ ${esc(host(s.url))} — ${esc(s.title || "")}${s.published_date ? ` <time>· ${esc(String(s.published_date).slice(0, 16))}</time>` : ""}</a>`).join("")}</div>
+    </article>`).join("");
 }
 </script>
 </body>
