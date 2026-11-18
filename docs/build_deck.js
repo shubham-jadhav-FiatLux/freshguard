@@ -258,34 +258,40 @@ async function glowBg(spots) { // dark background with soft radial glows (gradie
     T(s, [{ text: v + "  ", options: { bold: true, color: K.mint, fontSize: 17 } }, { text: l, options: { color: K.muted, fontSize: 13 } }], { x: 9.55, y, w: 3.0, h: 0.65, valign: "middle" }); });
 
   // ===== 9b. MEASURED =====
-  s = content("Demo", "09 · MEASURED", "Measured on 34 real claims: 97% accuracy");
-  const tiles = [["97%", "accuracy", "33 of 34 claims judged correctly"], ["11/11", "2026 changes caught", "CEOs, prices, versions changed this year"], ["1/14", "false alarms", "current facts wrongly flagged stale"]];
+  s = content("Demo", "09 · MEASURED", "97% on claims it had never seen");
+  const tiles = [["97%", "held-out accuracy", "33 unseen claims · mean of 3 runs (±3.1)"],
+                 ["0 / 48", "stale passed as fresh", "the dangerous error, never made (web-only: 1/16)"],
+                 ["38 / 39", "2026 changes caught", "CEOs, PMs, titles, releases, prices"]];
   tiles.forEach(([v, l, d], i) => { const y = 1.95 + i * 1.6;
     box(s, 0.7, y, 3.9, 1.4, K.surf, { line: K.line });
-    T(s, v, { x: 0.95, y: y + 0.15, w: 1.9, h: 0.75, fontSize: 40, bold: true, color: i === 2 ? K.text : K.mint, valign: "middle" });
-    T(s, l, { x: 2.75, y: y + 0.3, w: 1.75, h: 0.55, fontSize: 14, bold: true, valign: "middle" });
-    T(s, d, { x: 0.95, y: y + 0.92, w: 3.5, h: 0.35, fontSize: 12, color: K.muted }); });
+    T(s, v, { x: 0.95, y: y + 0.15, w: 2.0, h: 0.75, fontSize: 36, bold: true, color: K.mint, valign: "middle" });
+    T(s, l, { x: 2.85, y: y + 0.25, w: 1.65, h: 0.65, fontSize: 14, bold: true, valign: "middle" });
+    T(s, d, { x: 0.95, y: y + 0.92, w: 3.55, h: 0.35, fontSize: 11.5, color: K.muted }); });
   box(s, 4.9, 1.95, 7.75, 4.6, K.surf, { line: K.line });
-  T(s, "Accuracy by retrieval strategy (%)", { x: 5.2, y: 2.15, w: 7, h: 0.35, fontSize: 15, bold: true });
-  s.addChart(pres.charts.BAR, [{ name: "Accuracy", labels: ["Web search only", "News 30 days + web", "News 365 days + web (default)"], values: [88.2, 94.1, 97.1] }], {
-    x: 5.1, y: 2.55, w: 7.35, h: 2.75, barDir: "bar", chartColors: [K.dim, K.dim, K.mint], barGapWidthPct: 55,
-    showValue: true, dataLabelPosition: "outEnd", dataLabelColor: K.text, dataLabelFontSize: 14, dataLabelFontBold: true, dataLabelFontFace: "+mn-lt", dataLabelFormatCode: "0.0",
-    catAxisLabelColor: K.muted, catAxisLabelFontSize: 13, catAxisLabelFontFace: "+mn-lt", catAxisLineShow: false,
+  T(s, "Accuracy (%): FreshGuard vs. web search only", { x: 5.2, y: 2.15, w: 7.2, h: 0.35, fontSize: 15, bold: true });
+  s.addChart(pres.charts.BAR, [
+      { name: "Web search only", labels: ["Held-out set (unseen)", "Development set"], values: [93.9, 88.2] },
+      { name: "FreshGuard: news + web", labels: ["Held-out set (unseen)", "Development set"], values: [97.0, 97.1] },
+    ], {
+    x: 5.1, y: 2.5, w: 7.35, h: 2.9, barDir: "bar", barGrouping: "clustered", chartColors: [K.dim, K.mint], barGapWidthPct: 60,
+    showValue: true, dataLabelPosition: "outEnd", dataLabelColor: K.text, dataLabelFontSize: 13, dataLabelFontBold: true, dataLabelFontFace: "+mn-lt", dataLabelFormatCode: "0.0",
+    catAxisLabelColor: K.muted, catAxisLabelFontSize: 13, catAxisLabelFontFace: "+mn-lt", catAxisLineShow: false, catAxisOrientation: "maxMin",
     valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 100, valGridLine: { style: "none" }, catGridLine: { style: "none" },
-    showLegend: false, showTitle: false, plotArea: { fill: { color: K.surf } }, chartArea: { fill: { color: K.surf } }, objectName: "accuracy chart", altText: "Accuracy: web only 88.2%, news 30 days + web 94.1%, news 365 days + web 97.1%" });
-  T(s, [{ text: "Stale-claim recall  ", options: { color: K.muted } }, { text: "88% → 100%", options: { bold: true, color: K.mint } }, { text: "     ·     “Uncertain” verdicts  ", options: { color: K.muted } }, { text: "3 → 0", options: { bold: true, color: K.mint } }], { x: 5.2, y: 5.45, w: 7.3, h: 0.35, fontSize: 14 });
-  T(s, "Labels checked against dated sources on 15 Nov 2026 · single run per configuration · eval/claims.jsonl", { x: 5.2, y: 5.9, w: 7.3, h: 0.5, fontSize: 11, color: K.dim });
-  T(s, "Benchmark: 11 facts that changed in 2026 + their 11 current replacements, 6 long-stale facts, 3 still-true controls, 3 timeless facts (should be skipped).", { x: 0.7, y: 6.62, w: 11.95, h: 0.3, fontSize: 11, color: K.dim });
-  s.addNotes("Web only: 88.2%. News 30 days + web: 94.1%. News 365 days + web (default): 97.1%, 100% stale recall, 100% recall on 2026 changes. Only error: Netflix $19.99 flagged stale because an article rounded it to $20. Small benchmark, single run, and the same set was used to choose the window.");
-
+    showLegend: true, legendPos: "b", legendColor: K.muted, legendFontSize: 12, legendFontFace: "+mn-lt",
+    showTitle: false, plotArea: { fill: { color: K.surf } }, chartArea: { fill: { color: K.surf } }, objectName: "accuracy chart",
+    altText: "Held-out: web only 93.9%, FreshGuard 97.0% (mean of 3 runs). Development set: web only 88.2%, FreshGuard 97.1%." });
+  T(s, "Judge: gpt-oss-120b via Bifrost, fallback off · labels from dated sources · held-out built after all tuning", { x: 5.2, y: 5.55, w: 7.3, h: 0.35, fontSize: 11, color: K.dim });
+  T(s, "Fixed after analysis: a cabinet's formal resignation + same-day re-election (Japan, Feb 2026) was read as a change; judge rule v2 fixes it (5/5 live re-checks).", { x: 5.2, y: 5.9, w: 7.3, h: 0.55, fontSize: 11, color: K.dim });
+  T(s, "Held-out set: 13 changes from 2026 + their current replacements, 3 long-stale facts, 3 controls, 3 timeless facts · development set: 34 claims", { x: 0.7, y: 6.62, w: 11.95, h: 0.3, fontSize: 11, color: K.dim });
+  s.addNotes("Held-out set of 33 claims built after all tuning: 93.9, 97.0 and 100 percent over three runs, mean 97.0. Not once in 48 stale-claim checks did FreshGuard pass an outdated fact as fresh; web-only search did (Ishiba as Japan PM). Development set: 88.2 vs 97.1. Remaining error was a procedural resignation in Japan, fixed with judge rules v2.");
   // ===== 10. RELIABILITY =====
   s = content("Demo", "10 · ENGINEERED FOR PRODUCTION", "Built to never break the request it's checking");
   const rel = [[I.shieldDark, "Fail open", "If verification errors or times out, the original response passes through untouched with X-FreshGuard-Status: error."],
     [I.refresh, "No recursion", "Internal calls send x-freshguard-skip and an empty MCP include header, so FreshGuard never checks itself."],
-    [I.layers, "Provider failover", "All LLM calls use Bifrost fallbacks[]: when the primary model hits rate limits, a second model takes over."],
+    [I.layers, "Provider failover", "Bifrost fallbacks[] across providers: Groq gpt-oss-120b → Gemini 3.5 Flash → Groq Qwen when a model is rate-limited or down."],
     [I.lock, "Evidence-only judge", "The judge may only use retrieved pages; with weak evidence it answers unverified instead of guessing."],
     [I.trend, "Parallel fan-out", "Claims are searched and judged concurrently, so latency stays flat as claims grow, and at most 6 are checked per answer."],
-    [I.terminal, "Tested", "3 Python tests (pipeline mocked end to end) + 5 Go tests (path filter, skip header, annotate, fail-open)."]];
+    [I.terminal, "Tested", "6 Python + 5 Go tests, plus a 67-claim benchmark (34 dev + 33 held-out) with dated-source labels."]];
   rel.forEach(([img, h, b], i) => { const x = 0.7 + (i % 3) * 4.05, y = 1.95 + Math.floor(i / 3) * 2.45;
     box(s, x, y, 3.75, 2.2, K.surf, { line: K.line });
     disc(s, img === I.terminal ? I.code : img, x + 0.3, y + 0.3, 0.65, K.mint);
