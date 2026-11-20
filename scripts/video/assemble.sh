@@ -40,5 +40,5 @@ ffmpeg -loglevel error -y -f concat -safe 0 -i "$W/list.txt" -c copy "$W/video.m
 TOTAL=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$W/video.mp4")
 "$PY" "$S/calibrate.py"
 "$PY" "$S/soundtrack.py" "$W/timeline.json" "$TOTAL" "$W/soundtrack.wav"
-ffmpeg -loglevel error -y -i "$W/video.mp4" -i "$W/soundtrack.wav" -c:v copy -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 48000 -c:a aac -b:a 160k -shortest -movflags +faststart "$OUT"
+ffmpeg -loglevel error -y -i "$W/video.mp4" -i "$W/soundtrack.wav" -c:v copy -ar 48000 -c:a aac -b:a 160k -shortest -movflags +faststart "$OUT"
 ffprobe -v error -show_entries format=duration,size -of default=nw=1 "$OUT"

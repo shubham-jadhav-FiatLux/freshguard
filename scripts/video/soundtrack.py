@@ -80,25 +80,50 @@ def music(total):
     return out[: int(total * SR)]
 
 
+def _modes(n, freqs, decays, amps):
+    """Impulse response of a few damped resonances (keycap, plate, switch housing)."""
+    t = np.arange(n) / SR
+    return sum(a * np.sin(2 * np.pi * f * t + rng.random() * 6) * np.exp(-t / d) for f, d, a in zip(freqs, decays, amps))
+
+
+def _hit(n, freqs, decays, amps, burst_ms=1.2):
+    """Excite the resonances with a short noise burst: a hard plastic/metal strike."""
+    nb = max(8, int(burst_ms / 1000 * SR))
+    burst = rng.standard_normal(nb) * np.hanning(nb)
+    return np.convolve(burst, _modes(n, freqs, decays, amps))[:n]
+
+
 def keypress(kind):
-    if kind == "click":   # mouse button: short bright tick
-        n = int(0.03 * SR); t = np.arange(n) / SR
-        tick = np.diff(rng.standard_normal(n + 1)) * np.exp(-t * 900) * 0.35
-        return tick + np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 400) * 0.12
-    n = int(0.07 * SR); t = np.arange(n) / SR
-    low = {"key": 230, "space": 150, "enter": 140}[kind] * rng.uniform(0.92, 1.08)
-    vol = {"key": 1.0, "space": 1.25, "enter": 1.4}[kind] * rng.uniform(0.8, 1.05)
-    click = np.diff(rng.standard_normal(n + 1)) * np.exp(-t * 650) * 0.30      # switch contact
-    thock = np.sin(2 * np.pi * low * t) * np.exp(-t * 85) * 0.30                  # keycap bottoming out
-    upper = np.sin(2 * np.pi * low * 3.7 * t) * np.exp(-t * 160) * 0.07
-    release = np.zeros(n); r0 = int(rng.uniform(0.045, 0.06) * SR)               # key coming back up
-    release[r0:] = np.diff(rng.standard_normal(n - r0 + 1)) * np.exp(-np.arange(n - r0) / SR * 900) * 0.08
-    return (click + thock + upper + release) * vol
+    """Mechanical keyboard (clicky/tactile switch on a plate): click, bottom-out clack, return clack."""
+    j = lambda x: x * rng.uniform(0.93, 1.07)
+    n = int(0.16 * SR); out = np.zeros(n)
+    if kind == "click":   # mouse button: tight, dry tick
+        return _hit(int(0.03 * SR), [j(4200), j(6800), j(2600)], [0.0012, 0.0008, 0.002], [1, .6, .5], 0.4) * 0.5
+    big = kind in ("space", "enter")
+    # 1) switch click: bright, very short
+    click = _hit(int(0.02 * SR), [j(3600), j(5400), j(7900)], [0.0015, 0.001, 0.0007], [1, .8, .5], 0.5) * 0.55
+    # 2) bottom-out ~8 ms later: keycap hits the plate; lower, woodier on big keys
+    body_f = [j(520), j(1150), j(1900), j(2900)] if big else [j(780), j(1500), j(2400), j(3700)]
+    body = _hit(int(0.06 * SR), body_f, [0.012, 0.007, 0.005, 0.003], [1, .7, .5, .35], 1.5) * (1.25 if big else 1.0)
+    # 3) return stroke ~75-105 ms later: same parts, quieter
+    up = _hit(int(0.04 * SR), [f * 1.08 for f in body_f], [0.006, 0.004, 0.003, 0.002], [1, .7, .5, .35], 1.0) * 0.35
+    d0 = int(rng.uniform(0.006, 0.010) * SR); u0 = int(rng.uniform(0.075, 0.105) * SR)
+    out[:len(click)] += click
+    out[d0:d0 + len(body)] += body
+    out[u0:u0 + len(up)] += up
+    if big:               # stabiliser wire rattle
+        r0 = d0 + int(0.005 * SR); rat = _hit(int(0.02 * SR), [j(2200), j(3300)], [0.003, 0.002], [1, .6], 0.6) * 0.3
+        out[r0:r0 + len(rat)] += rat
+    return out / (np.abs(out).max() + 1e-9) * rng.uniform(0.8, 1.0) * (1.15 if big else 1.0)
+
+
+MUSIC_GAIN = 0.42   # music peak level: bed sits ~-21.5 LUFS, keys clearly on top
 
 
 def main(timeline_path, total, out_path):
     total = float(total)
     mix = music(total)
+    mix *= MUSIC_GAIN / max(1e-9, np.abs(mix).max())   # music peaks at MUSIC_GAIN
     offsets = json.loads((CLIPS / "offsets.json").read_text())
     for seg in json.loads(pathlib.Path(timeline_path).read_text()):
         f = CLIPS / f"{seg['clip']}.events.json"
@@ -107,8 +132,9 @@ def main(timeline_path, total, out_path):
         for t, kind in e["events"]:
             vt = t - e["t_open"] + offsets.get(seg["clip"], 0.0)        # time inside the recorded clip
             if seg["trim"] <= vt <= seg["trim"] + seg["len"]:
-                add(mix, keypress(kind) * 0.55, seg["start"] + vt - seg["trim"], rng.uniform(-0.15, 0.15))
-    mix *= 0.89 / max(1e-9, np.abs(mix).max())
+                add(mix, keypress(kind) * 0.8, seg["start"] + vt - seg["trim"], rng.uniform(-0.15, 0.15))
+    over = np.abs(mix) > 0.8                            # soft-limit only the rare overlapping peaks
+    mix[over] = np.sign(mix[over]) * (0.8 + 0.19 * np.tanh((np.abs(mix[over]) - 0.8) / 0.19))
     pcm = (np.clip(mix, -1, 1) * 32767).astype(np.int16)
     with wave.open(out_path, "wb") as w:
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
