@@ -93,7 +93,7 @@ def _hit(n, freqs, decays, amps, burst_ms=1.2):
     return np.convolve(burst, _modes(n, freqs, decays, amps))[:n]
 
 
-def keypress(kind):
+def mech_key(kind):
     """Mechanical keyboard (clicky/tactile switch on a plate): click, bottom-out clack, return clack."""
     j = lambda x: x * rng.uniform(0.93, 1.07)
     n = int(0.16 * SR); out = np.zeros(n)
@@ -117,6 +117,31 @@ def keypress(kind):
     return out / (np.abs(out).max() + 1e-9) * rng.uniform(0.8, 1.0) * (1.15 if big else 1.0)
 
 
+def soft_key(kind):
+    """First version: soft, rounded click + low thock."""
+    if kind == "click":   # mouse button: short bright tick
+        n = int(0.03 * SR); t = np.arange(n) / SR
+        tick = np.diff(rng.standard_normal(n + 1)) * np.exp(-t * 900) * 0.35
+        return tick + np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 400) * 0.12
+    n = int(0.07 * SR); t = np.arange(n) / SR
+    low = {"key": 230, "space": 150, "enter": 140}[kind] * rng.uniform(0.92, 1.08)
+    vol = {"key": 1.0, "space": 1.25, "enter": 1.4}[kind] * rng.uniform(0.8, 1.05)
+    click = np.diff(rng.standard_normal(n + 1)) * np.exp(-t * 650) * 0.30      # switch contact
+    thock = np.sin(2 * np.pi * low * t) * np.exp(-t * 85) * 0.30                  # keycap bottoming out
+    upper = np.sin(2 * np.pi * low * 3.7 * t) * np.exp(-t * 160) * 0.07
+    release = np.zeros(n); r0 = int(rng.uniform(0.045, 0.06) * SR)               # key coming back up
+    release[r0:] = np.diff(rng.standard_normal(n - r0 + 1)) * np.exp(-np.arange(n - r0) / SR * 900) * 0.08
+    return (click + thock + upper + release) * vol
+
+
+def keypress(kind, mech=0.5):
+    """Blend of the soft and the mechanical key: crisp but not harsh."""
+    a, b = soft_key(kind), mech_key(kind)
+    n = max(len(a), len(b)); a = np.pad(a, (0, n - len(a))); b = np.pad(b, (0, n - len(b)))
+    a /= np.abs(a).max() + 1e-9
+    return (1 - mech) * a + mech * b
+
+
 MUSIC_GAIN = 0.42   # music peak level: bed sits ~-21.5 LUFS, keys clearly on top
 
 
@@ -129,10 +154,16 @@ def main(timeline_path, total, out_path):
         f = CLIPS / f"{seg['clip']}.events.json"
         if not f.exists(): continue
         e = json.loads(f.read_text())
+        # Terminal replays type ~20 chars/s; sounding every one is a buzz. Keep at most one key sound
+        # per MIN_GAP there, a little softer, so it reads as brisk typing instead.
+        term = seg["clip"].startswith("term")
+        gap, vol, last = (0.12, 0.85, -1.0) if term else (0.0, 1.2, -1.0)
         for t, kind in e["events"]:
             vt = t - e["t_open"] + offsets.get(seg["clip"], 0.0)        # time inside the recorded clip
-            if seg["trim"] <= vt <= seg["trim"] + seg["len"]:
-                add(mix, keypress(kind) * 0.8, seg["start"] + vt - seg["trim"], rng.uniform(-0.15, 0.15))
+            if not (seg["trim"] <= vt <= seg["trim"] + seg["len"]) or (vt - last < gap and kind != "enter"):
+                continue
+            last = vt
+            add(mix, keypress(kind) * vol, seg["start"] + vt - seg["trim"], rng.uniform(-0.15, 0.15))
     over = np.abs(mix) > 0.8                            # soft-limit only the rare overlapping peaks
     mix[over] = np.sign(mix[over]) * (0.8 + 0.19 * np.tanh((np.abs(mix[over]) - 0.8) / 0.19))
     pcm = (np.clip(mix, -1, 1) * 32767).astype(np.int16)
