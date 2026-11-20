@@ -137,14 +137,11 @@
     <textarea id="input" aria-label="Question or answer" placeholder="Ask something time-sensitive…"></textarea>
     <div class="row">
       <button class="go" id="go">Ask &amp; verify</button>
-      <span class="hint">Try:</span>
       <span id="examples" style="display:contents">
-        <button class="chip" data-ask="Who is the CEO of NVIDIA, and who is the CEO of Apple?"
-          data-answer="NVIDIA is led by its co-founder and CEO Jensen Huang, while Tim Cook continues to serve as Apple's CEO.">NVIDIA &amp; Apple CEOs</button>
-        <button class="chip" data-ask="How much do Netflix's Standard plan and Spotify Premium Individual cost per month in the US?"
-          data-answer="Netflix's Standard ad-free plan costs $17.99 per month in the US, and Spotify Premium Individual costs $11.99 per month.">Streaming prices</button>
-        <button class="chip" data-ask="What are the latest stable versions of Python and Rust, and the newest Node.js LTS?"
-          data-answer="The latest stable Python is 3.13, the latest stable Rust is 1.85, and Node.js 22 is the newest LTS release.">Latest versions</button>
+        <span class="hint">Try:</span>
+        <button class="chip" data-ask="Who is the CEO of NVIDIA, and who is the CEO of Apple?">NVIDIA &amp; Apple CEOs</button>
+        <button class="chip" data-ask="How much do Netflix's Standard plan and Spotify Premium Individual cost per month in the US?">Streaming prices</button>
+        <button class="chip" data-ask="What are the latest stable versions of Python and Rust, and the newest Node.js LTS?">Latest versions</button>
       </span>
     </div>
     <div class="steps" id="steps">
@@ -234,14 +231,15 @@ document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
   mode = t.dataset.mode;
   $("go").textContent = mode === "ask" ? "Ask & verify" : "Verify answer";
   $("input").placeholder = mode === "ask" ? "Ask something time-sensitive…" : "Paste an answer produced by any LLM…";
-  const active = document.querySelector("#examples .chip.picked");
-  if (active) $("input").value = active.dataset[mode === "ask" ? "ask" : "answer"];
+  // Example questions belong to Ask mode; Paste mode starts empty for the user's own answer.
+  $("examples").style.display = mode === "ask" ? "contents" : "none";
+  document.querySelectorAll("#examples .chip").forEach((x) => x.classList.remove("picked"));
+  $("input").value = "";
 });
 document.querySelectorAll("#examples .chip").forEach((c) => c.onclick = () => {
   document.querySelectorAll("#examples .chip").forEach((x) => x.classList.toggle("picked", x === c));
-  $("input").value = c.dataset[mode === "ask" ? "ask" : "answer"];
+  $("input").value = c.dataset.ask;
 });
-document.querySelector("#examples .chip").click();  // demo opens with the NVIDIA CEO case
 
 let stepTimer = null;
 function progress(on) {
